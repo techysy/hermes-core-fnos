@@ -4,7 +4,25 @@
 
 ---
 
-## 2026-08-03
+## 2026-08-03 (第二次迭代)
+
+### 手机 App 打开内核图标报 iframe 错误 (WebKitErrorDomain code=102)
+
+**现象**：手机 fnOS App 点 Hermes Core 桌面图标，浏览器报 "无法访问此页面，frame load interrupted"（`WebKitErrorDomain code=102`）。
+
+**根因**：应用入口 `app/ui/config` 配置 `type:"url"` 指向 `:8642/health`，该端点返回 **JSON**（无 CORS 头）。手机 fnOS App 用 **WebView iframe** 加载，iframe 无法显示 JSON → frame load interrupted。
+
+**修复**：
+- 新增 `cmd/status_server.py` — 极简 HTML 状态页服务（纯 stdlib，监听 :8648），显示内核健康/平台/版本
+- `cmd/main` 启动时一并启动状态服务（start_status_server）
+- 入口改为指向 `:8648/`（返回 HTML，iframe 可正常显示）
+- `stop` 一并停止状态服务
+
+**教训**：fnOS 应用入口若指向 API 端点（JSON），手机 App iframe 会加载中断。**入口应指向真正的 HTML 页面**。
+
+---
+
+## 2026-08-03 (首次迭代)
 
 ### fnpack build 失败："mkdir /tmp/fnpack.*/app/ui: permission denied"
 
