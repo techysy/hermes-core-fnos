@@ -41,6 +41,7 @@ curl -sf http://127.0.0.1:8642/health
 
 - 内核安装在应用数据目录的 venv（`/vol4/@appdata/HermesCore/venv`），首次安装需联网 `pip install hermes-agent`（约 1-2 分钟）。
 - `HERMES_HOME` 指向 `/vol4/@appdata/HermesCore/hermes_home`，不依赖系统用户 HOME。
+- **状态页** (`:8648`) — 提供内核健康状态的 HTML 页面，桌面图标/手机 App 打开即见（避免 iframe 加载 JSON API 报错）。
 
 ## LLM 模型连接配置（安装向导 / 应用设置页）
 

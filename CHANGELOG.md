@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.2.0 (2026-08-03)
+
+### 新增 / Added
+- **状态页服务** (`cmd/status_server.py`) — 极简 HTML 状态页 (:8648)，修复手机 App 打开图标报 iframe 错误 (WebKitErrorDomain code=102)
+- 入口改为指向 `:8648/` 状态页，显示内核健康/平台/版本
+
+### 修复 / Fixed
+- 手机 fnOS App 用 WebView iframe 打开内核图标时，因入口指向 JSON API (`/health`) 且无 CORS 头导致加载中断
+
 ## 0.1.0 (2026-08-03)
 
 ### 新增 / Added

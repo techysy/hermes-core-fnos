@@ -19,11 +19,17 @@ mkdir -p "${DATA_DIR}" 2>/dev/null
 } >> "${DIAG}" 2>&1
 
 PORT="${TRIM_SERVICE_PORT:-8642}"
+STATUS_PORT=8648
 VENV="${DATA_DIR}/venv"
 HERMES_HOME="${DATA_DIR}/hermes_home"
 CONFIG_FILE="${DATA_DIR}/gateway.env"
 LOG="${DATA_DIR}/core.log"
 PID_FILE="${DATA_DIR}/core.pid"
+STATUS_PID="${DATA_DIR}/status.pid"
+STATUS_LOG="${DATA_DIR}/status.log"
+STATUS_SRC="${APP_DIR}/cmd/status_server.py"
+[ -f "${APP_DIR}/target/cmd/status_server.py" ] && STATUS_SRC="${APP_DIR}/target/cmd/status_server.py"
+[ -f "${DATA_DIR}/status_server.py" ] && STATUS_SRC="${DATA_DIR}/status_server.py"
 
 log() { echo "[$(date '+%F %T')] $*" >> "${LOG}"; }
 
@@ -82,12 +88,29 @@ start() {
     for i in $(seq 1 40); do
         if curl -sf -m3 -H "Authorization: Bearer ${API_SERVER_KEY}" "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
             log "core ready on :${PORT} after ${i}s"
+            start_status_server
             return 0
         fi
         sleep 1
     done
     log "core start timeout on :${PORT}"
     return 1
+}
+
+start_status_server() {
+    # 启动状态页服务 (:8648), 供手机 App/浏览器 iframe 查看内核状态
+    [ -f "${STATUS_SRC}" ] || { log "status_server.py not found (${STATUS_SRC})"; return 0; }
+    if [ -f "${STATUS_PID}" ] && kill -0 "$(cat "${STATUS_PID}")" 2>/dev/null; then
+        return 0
+    fi
+    # 状态服务不依赖 venv (纯 stdlib)
+    PY=/usr/bin/python3
+    [ -x "${VENV}/bin/python" ] && PY="${VENV}/bin/python"
+    STATUS_PORT="${STATUS_PORT}" CORE_PORT="${PORT}" CORE_API_KEY="${API_SERVER_KEY}" \
+      nohup "${PY}" "${STATUS_SRC}" >> "${STATUS_LOG}" 2>&1 &
+    echo $! > "${STATUS_PID}"
+    log "status server started (pid $(cat "${STATUS_PID}")) :${STATUS_PORT}"
+    sleep 1
 }
 
 write_env() {
@@ -143,7 +166,16 @@ EOF
 }
 
 stop() {
-    # 1) 停 PID 文件记录的进程
+    # 1) 停状态服务
+    if [ -f "${STATUS_PID}" ]; then
+        SPID=$(cat "${STATUS_PID}")
+        kill "${SPID}" 2>/dev/null || true
+        sleep 1
+        kill -9 "${SPID}" 2>/dev/null || true
+        rm -f "${STATUS_PID}"
+    fi
+    pkill -f "status_server.py" 2>/dev/null || true
+    # 2) 停 PID 文件记录的进程
     if [ -f "${PID_FILE}" ]; then
         PID=$(cat "${PID_FILE}")
         kill "${PID}" 2>/dev/null || true
@@ -155,7 +187,7 @@ stop() {
         rm -f "${PID_FILE}"
         log "force stopped (pid ${PID})"
     fi
-    # 2) 兜底: 匹配本内核的实际进程 cmdline (防止孤儿进程占端口)
+    # 3) 兜底: 匹配本内核的实际进程 cmdline (防止孤儿进程占端口)
     pkill -f "${VENV}/bin/hermes gateway run" 2>/dev/null || true
     pkill -f "hermes gateway run" 2>/dev/null || true
     log "stop complete"
