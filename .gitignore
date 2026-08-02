@@ -16,3 +16,7 @@ gateway.env
 
 # 系统文件
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
