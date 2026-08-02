@@ -1,0 +1,78 @@
+#!/bin/bash
+# install_callback — 安装 hermes-agent 内核
+# 支持两种模式:
+#   A) 在线: 建 venv + pip install hermes-agent (fpk 小, 需联网 1-2 分钟)
+#   B) 离线: 解压预打包的 app/venv.tar.gz (fpk 大 ~150MB, 秒装, 无需联网)
+# 失败时记录日志但不阻断安装, cmd/main 会做 hybrid 检测并提示。
+set -uo pipefail
+
+APP_NAME="${TRIM_APPNAME:-HermesCore}"
+APP_DIR="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
+VENV="${DATA_DIR}/venv"
+LOG="${DATA_DIR}/install.log"
+OFFLINE_VENV="${APP_DIR}/venv.tar.gz"   # B 方案离线包
+
+mkdir -p "${DATA_DIR}"
+echo "[$(date '+%F %T')] install_callback start (user=$(id -un) uid=$(id -u))" >> "${LOG}"
+
+# 保存安装向导传入的配置 (wizard_ 前缀) 到 gateway.env
+# 字段: api_server_*, router_api_key (9Router), llm_base_url/api_key/model (通用兜底)
+cat > "${DATA_DIR}/gateway.env" <<EOF
+API_SERVER_HOST="${wizard_api_server_host:-0.0.0.0}"
+API_SERVER_PORT="${wizard_api_server_port:-8642}"
+API_SERVER_KEY="${wizard_api_server_key:-webui-gateway-key-2026}"
+ROUTER_API_KEY="${wizard_router_api_key:-}"
+LLM_BASE_URL="${wizard_llm_base_url:-}"
+LLM_API_KEY="${wizard_llm_api_key:-}"
+LLM_MODEL="${wizard_llm_model:-}"
+EOF
+chmod 600 "${DATA_DIR}/gateway.env"
+echo "[$(date '+%F %T')] saved wizard config" >> "${LOG}"
+
+# 已安装则跳过
+if [ -x "${VENV}/bin/hermes" ]; then
+    echo "[$(date '+%F %T')] hermes already installed, skip" >> "${LOG}"
+    exit 0
+fi
+
+# 优先离线包 (B 方案) — 秒装, 不依赖网络
+if [ -f "${OFFLINE_VENV}" ]; then
+    echo "[$(date '+%F %T')] offline mode: extracting bundled venv..." >> "${LOG}"
+    tar xzf "${OFFLINE_VENV}" -C "${DATA_DIR}" >> "${LOG}" 2>&1
+    if [ -x "${VENV}/bin/hermes" ]; then
+        echo "[$(date '+%F %T')] offline venv installed: $("${VENV}"/bin/hermes --version 2>&1 | head -1)" >> "${LOG}"
+        exit 0
+    else
+        echo "[$(date '+%F %T')] offline venv extract failed, falling back to online" >> "${LOG}"
+        rm -rf "${VENV}" 2>/dev/null
+    fi
+fi
+
+# 在线模式 (A 方案)
+echo "[$(date '+%F %T')] online mode: creating venv at ${VENV}" >> "${LOG}"
+PY=/usr/bin/python3
+[ -x /vol4/@appcenter/python312/bin/python3.12 ] && PY=/vol4/@appcenter/python312/bin/python3.12
+
+"${PY}" -m venv "${VENV}" >> "${LOG}" 2>&1
+if [ ! -x "${VENV}/bin/pip" ]; then
+    echo "[$(date '+%F %T')] ERROR: venv creation failed" >> "${LOG}"
+    exit 0
+fi
+
+"${VENV}/bin/pip" install --quiet pyyaml cryptography aiohttp >> "${LOG}" 2>&1 || true
+
+echo "[$(date '+%F %T')] installing hermes-agent (may take 1-2 min)..." >> "${LOG}"
+if "${VENV}/bin/pip" install --quiet hermes-agent >> "${LOG}" 2>&1; then
+    echo "[$(date '+%F %T')] hermes-agent installed: $("${VENV}"/bin/hermes --version 2>&1 | head -1)" >> "${LOG}"
+else
+    echo "[$(date '+%F %T')] direct install failed, trying proxy..." >> "${LOG}"
+    if "${VENV}/bin/pip" install --quiet --proxy http://127.0.0.1:7890 hermes-agent >> "${LOG}" 2>&1; then
+        echo "[$(date '+%F %T')] hermes-agent installed via proxy" >> "${LOG}"
+    else
+        echo "[$(date '+%F %T')] ERROR: hermes-agent install failed (check network). cmd/main will report." >> "${LOG}"
+    fi
+fi
+
+echo "[$(date '+%F %T')] install_callback done" >> "${LOG}"
+exit 0

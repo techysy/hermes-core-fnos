@@ -1,0 +1,183 @@
+#!/bin/bash
+set -uo pipefail
+
+APP_NAME="${TRIM_APPNAME:-HermesCore}"
+APP_DIR="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
+
+# 诊断日志（无条件记录，便于排查 fnOS 调用方式）
+DIAG="${DATA_DIR}/core-diag.log"
+mkdir -p "${DATA_DIR}" 2>/dev/null
+{
+    echo "=== $(date '+%F %T') call: '${1:-<none>}' USER=$(id -un) UID=$(id -u) ==="
+    echo "  PWD=$(pwd)"
+    echo "  ARG1=${1:-<none>}"
+    echo "  TRIM_APPDEST=${TRIM_APPDEST:-<unset>}"
+    echo "  TRIM_PKGVAR=${TRIM_PKGVAR:-<unset>}"
+    echo "  TRIM_APPNAME=${TRIM_APPNAME:-<unset>}"
+    echo "  TRIM_SERVICE_PORT=${TRIM_SERVICE_PORT:-<unset>}"
+} >> "${DIAG}" 2>&1
+
+PORT="${TRIM_SERVICE_PORT:-8642}"
+VENV="${DATA_DIR}/venv"
+HERMES_HOME="${DATA_DIR}/hermes_home"
+CONFIG_FILE="${DATA_DIR}/gateway.env"
+LOG="${DATA_DIR}/core.log"
+PID_FILE="${DATA_DIR}/core.pid"
+
+log() { echo "[$(date '+%F %T')] $*" >> "${LOG}"; }
+
+# 读取运行配置 (API_SERVER_* + provider keys)
+[ -f "${CONFIG_FILE}" ] && source "${CONFIG_FILE}"
+
+# 内核可执行文件路径检测
+find_hermes_bin() {
+    if [ -x "${VENV}/bin/hermes" ]; then
+        echo "${VENV}/bin/hermes"
+    elif [ -x "${VENV}/bin/python3" ] && [ -f "${VENV}/bin/../lib/python3"*"/site-packages" ]; then
+        echo "${VENV}/bin/hermes"
+    else
+        echo ""
+    fi
+}
+
+start() {
+    HERMES_BIN="$(find_hermes_bin)"
+    if [ -z "${HERMES_BIN}" ]; then
+        log "ERROR: hermes not installed in ${VENV}. Run install/upgrade first."
+        echo "ERROR: hermes kernel not installed" >&2
+        return 1
+    fi
+
+    # 已在运行则跳过
+    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
+        log "already running (pid $(cat "${PID_FILE}"))"
+        return 0
+    fi
+    # 端口已被监听（可能是本内核残留进程）
+    if curl -sf -m3 "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
+        log "port ${PORT} already serving — treating as running"
+        return 0
+    fi
+
+    mkdir -p "${HERMES_HOME}"
+    [ ! -f "${HERMES_HOME}/.env" ] && write_env
+    [ ! -f "${HERMES_HOME}/config.yaml" ] && write_config
+
+    export HERMES_HOME
+    # API Server 平台配置 (WebUI 等前端连接的 Gateway 端点)
+    export API_SERVER_ENABLED=true
+    export API_SERVER_HOST="${API_SERVER_HOST:-0.0.0.0}"
+    export API_SERVER_PORT="${API_SERVER_PORT:-${PORT}}"
+    export API_SERVER_KEY="${API_SERVER_KEY:-webui-gateway-key-2026}"
+    # 传递 LLM provider keys
+    export XIAOMI_API_KEY="${XIAOMI_API_KEY:-}"
+
+    cd "${DATA_DIR}"
+    nohup "${HERMES_BIN}" gateway run >> "${LOG}" 2>&1 &
+    echo $! > "${PID_FILE}"
+    log "gateway started (pid $(cat "${PID_FILE}"))"
+
+    # 健康检查轮询
+    for i in $(seq 1 40); do
+        if curl -sf -m3 -H "Authorization: Bearer ${API_SERVER_KEY}" "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
+            log "core ready on :${PORT} after ${i}s"
+            return 0
+        fi
+        sleep 1
+    done
+    log "core start timeout on :${PORT}"
+    return 1
+}
+
+write_env() {
+    {
+        echo "ROUTER_API_KEY=${ROUTER_API_KEY:-}"
+        echo "LLM_BASE_URL=${LLM_BASE_URL:-}"
+        echo "LLM_API_KEY=${LLM_API_KEY:-}"
+        [ -n "${EXTRA_ENV:-}" ] && echo "${EXTRA_ENV}"
+    } > "${HERMES_HOME}/.env"
+}
+
+write_config() {
+    # 完整 config.yaml — 9Router(本机) + 通用兜底 Custom LLM (任意 OpenAI 兼容 API)
+    # model.default 优先: 填了 LLM_BASE_URL 则用兜底, 否则用 9Router
+    DEFAULT_PROVIDER="9Router Proxy"
+    DEFAULT_MODEL="cbcn/deepseek-v4-flash"
+    if [ -n "${LLM_BASE_URL:-}" ]; then
+        DEFAULT_PROVIDER="Custom LLM"
+        DEFAULT_MODEL="${LLM_MODEL:-default}"
+    fi
+    cat > "${HERMES_HOME}/config.yaml" <<EOF
+model:
+  default: ${DEFAULT_MODEL}
+  provider: ${DEFAULT_PROVIDER}
+  base_url: ${PROVIDER_BASE_URL:-}
+custom_providers:
+  - name: 9Router Proxy
+    base_url: http://127.0.0.1:20128/v1
+    api_key: ${ROUTER_API_KEY:-}
+    model: cbcn/deepseek-v4-flash
+    models:
+      - cbcn/deepseek-v4-flash
+      - cbcn/minimax-m3
+      - ds/deepseek-v4-flash
+      - mimo/mimo-v2.5
+      - nvidia/z-ai/glm-5.2
+  - name: Custom LLM
+    base_url: ${LLM_BASE_URL:-http://127.0.0.1:20128/v1}
+    api_key: ${LLM_API_KEY:-}
+    models:
+      - ${LLM_MODEL:-default}
+toolsets:
+  - hermes-cli
+agent:
+  max_turns: 50
+approvals:
+  mode: manual
+api_server:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8642
+EOF
+}
+
+stop() {
+    # 1) 停 PID 文件记录的进程
+    if [ -f "${PID_FILE}" ]; then
+        PID=$(cat "${PID_FILE}")
+        kill "${PID}" 2>/dev/null || true
+        for i in 1 2 3; do
+            kill -0 "${PID}" 2>/dev/null || { rm -f "${PID_FILE}"; log "stopped (pid ${PID})"; return 0; }
+            sleep 1
+        done
+        kill -9 "${PID}" 2>/dev/null || true
+        rm -f "${PID_FILE}"
+        log "force stopped (pid ${PID})"
+    fi
+    # 2) 兜底: 匹配本内核的实际进程 cmdline (防止孤儿进程占端口)
+    pkill -f "${VENV}/bin/hermes gateway run" 2>/dev/null || true
+    pkill -f "hermes gateway run" 2>/dev/null || true
+    log "stop complete"
+}
+
+status() {
+    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
+        echo "running (pid $(cat "${PID_FILE}"))"
+        return 0
+    fi
+    if curl -sf -m3 "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
+        echo "running (port ${PORT})"
+        return 0
+    fi
+    echo "stopped"
+    return 1
+}
+
+case "${1:-start}" in
+    start) start ;;
+    stop) stop ;;
+    status) status ;;
+    restart) stop; sleep 2; start ;;
+    *) echo "Usage: $0 {start|stop|status|restart}"; exit 1 ;;
+esac

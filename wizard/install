@@ -1,0 +1,56 @@
+[
+  {
+    "stepTitle": "Hermes Core 内核配置",
+    "items": [
+      {
+        "type": "text",
+        "field": "api_server_host",
+        "label": "监听地址",
+        "initValue": "0.0.0.0",
+        "rules": [{"required": true, "message": "必填"}]
+      },
+      {
+        "type": "text",
+        "field": "api_server_port",
+        "label": "API 端口",
+        "initValue": "8642",
+        "rules": [{"required": true, "message": "必填"}]
+      },
+      {
+        "type": "text",
+        "field": "api_server_key",
+        "label": "API Key",
+        "initValue": "webui-gateway-key-2026"
+      }
+    ]
+  },
+  {
+    "stepTitle": "LLM 模型连接",
+    "items": [
+      {
+        "type": "text",
+        "field": "router_api_key",
+        "label": "9Router API Key (本机 :20128，可选)",
+        "initValue": ""
+      },
+      {
+        "type": "text",
+        "field": "llm_base_url",
+        "label": "兜底 LLM Base URL (任意 OpenAI 兼容 API，如 9Router/直连)",
+        "initValue": ""
+      },
+      {
+        "type": "text",
+        "field": "llm_api_key",
+        "label": "兜底 LLM API Token",
+        "initValue": ""
+      },
+      {
+        "type": "text",
+        "field": "llm_model",
+        "label": "兜底 LLM 模型名",
+        "initValue": ""
+      }
+    ]
+  }
+]

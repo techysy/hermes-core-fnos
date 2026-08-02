@@ -1,0 +1,18 @@
+#!/bin/bash
+# uninstall_init — 卸载前停止内核进程
+set -uo pipefail
+APP_NAME="${TRIM_APPNAME:-HermesCore}"
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
+
+# 停 PID 文件
+if [ -f "${DATA_DIR}/core.pid" ]; then
+    PID=$(cat "${DATA_DIR}/core.pid")
+    kill "${PID}" 2>/dev/null || true
+    sleep 2
+    kill -9 "${PID}" 2>/dev/null || true
+    rm -f "${DATA_DIR}/core.pid"
+fi
+# 兜底清理 hermes gateway 进程
+pkill -f "${DATA_DIR}/venv/bin/hermes gateway run" 2>/dev/null || true
+pkill -f "hermes gateway run" 2>/dev/null || true
+exit 0

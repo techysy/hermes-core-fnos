@@ -1,0 +1,11 @@
+#!/bin/bash
+# upgrade_callback — 更新内核时尝试升级 hermes-agent
+set -uo pipefail
+APP_NAME="${TRIM_APPNAME:-HermesCore}"
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
+VENV="${DATA_DIR}/venv"
+LOG="${DATA_DIR}/install.log"
+
+[ -x "${VENV}/bin/pip" ] || exit 0
+"${VENV}/bin/pip" install --quiet --upgrade hermes-agent aiohttp pyyaml cryptography >> "${LOG}" 2>&1 || true
+exit 0

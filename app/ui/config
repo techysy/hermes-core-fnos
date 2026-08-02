@@ -1,0 +1,13 @@
+{
+  ".url": {
+    "HermesCore.Application": {
+      "title": "Hermes Core",
+      "icon": "images/icon_{0}.png",
+      "type": "url",
+      "protocol": "http",
+      "port": "8642",
+      "url": "/health",
+      "allUsers": true
+    }
+  }
+}

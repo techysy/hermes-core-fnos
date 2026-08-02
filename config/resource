@@ -1,0 +1,28 @@
+{
+    "data-share":
+    {
+        "shares":
+        [
+            {
+                "name": "HermesCore",
+                "permission":
+                {
+                    "rw":
+                    [
+                        "HermesCore"
+                    ]
+                }
+            },
+            {
+                "name": "HermesCore/data",
+                "permission":
+                {
+                    "rw":
+                    [
+                        "HermesCore"
+                    ]
+                }
+            }
+        ]
+    }
+}

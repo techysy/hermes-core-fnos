@@ -1,0 +1,3 @@
+#!/bin/bash
+# upgrade_init — no-op (venv 在 upgrade_callback 保持/更新)
+exit 0
