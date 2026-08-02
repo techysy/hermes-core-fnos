@@ -1,9 +1,9 @@
 {
-  ".url": {
+  ".iframe": {
     "HermesCore.Application": {
       "title": "Hermes Core",
       "icon": "images/icon_{0}.png",
-      "type": "url",
+      "type": "iframe",
       "protocol": "http",
       "port": "8648",
       "url": "/",

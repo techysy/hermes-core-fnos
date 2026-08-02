@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.2.2 (2026-08-03)
+
+### 变更 / Changed
+- **入口改为 iframe 窗口版** — 状态页为纯 HTML 无跨域请求，可在 fnOS 桌面窗口内嵌显示（避免跳新标签页）
+
+## 0.2.1 (2026-08-03)
+
+### 修复 / Fixed
+- status_server.py 路径改用 BASH_SOURCE[0] 定位，修复 fnOS 1.1.31xx 下 APP_DIR 差异导致状态页不启动
+
 ## 0.2.0 (2026-08-03)
 
 ### 新增 / Added
