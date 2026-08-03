@@ -2,6 +2,8 @@
 
 Hermes Agent 本地内核的飞牛 fnOS 应用包 — 独立运行的 Gateway API 服务，供 Hermes WebUI 等前端连接。
 
+![Release](https://img.shields.io/github/v/release/techysy/hermes-core-fnos?label=Release&color=blue)
+![Downloads](https://img.shields.io/github/downloads/techysy/hermes-core-fnos/total?label=Downloads&color=green)
 ![fnOS](https://img.shields.io/badge/fnOS-1.1.31xx-blue)
 ![Hermes](https://img.shields.io/badge/Hermes-v0.19.0-purple)
 
