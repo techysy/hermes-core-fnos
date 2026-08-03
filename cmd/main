@@ -71,7 +71,8 @@ start() {
 
     mkdir -p "${HERMES_HOME}"
     [ ! -f "${HERMES_HOME}/.env" ] && write_env
-    [ ! -f "${HERMES_HOME}/config.yaml" ] && write_config
+    # config.yaml 每次启动都重新生成, 确保用最新的 gateway.env 配置 (ROUTER_API_KEY 等)
+    write_config
 
     export HERMES_HOME
     # API Server 平台配置 (WebUI 等前端连接的 Gateway 端点)

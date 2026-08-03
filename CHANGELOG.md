@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.2.9 (2026-08-03)
+
+### 修复 / Fixed
+- **config.yaml 每次启动重新生成** — 修复修改 gateway.env（如兜底 LLM / 9Router key）后重启不生效的问题。原先只有 config.yaml 不存在时才生成，导致配置更新无法传播。
+
+### 说明 / Docs
+- 兜底 LLM 逻辑：填了 `LLM_BASE_URL` 用 Custom LLM（任意 OpenAI 兼容 API），否则用 9Router。详见 README。
+
 ## 0.2.8 (2026-08-03)
 
 ### 变更 / Changed

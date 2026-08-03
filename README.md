@@ -76,6 +76,35 @@ curl -sf http://127.0.0.1:8642/health
 
 优先级：填了 `llm_base_url` 用兜底（Custom LLM），否则用 9Router。都不填则默认 9Router。
 
+## 兜底 LLM 逻辑
+
+内核默认模型选择逻辑（config.yaml 的 `model.default`）：
+
+```
+gateway.env 里 LLM_BASE_URL 填了吗？
+        │
+        ├─ 填了 → 默认用 Custom LLM (兜底)
+        │          base_url = LLM_BASE_URL
+        │          model    = LLM_MODEL (如 LongCat-2.0)
+        │          token    = LLM_API_KEY
+        │
+        └─ 没填 → 默认用 9Router Proxy (本机 :20128)
+                   model = cbcn/deepseek-v4-flash
+                   key   = ROUTER_API_KEY
+```
+
+- **`9Router Proxy`** 和 **`Custom LLM`** 两个 provider 始终同时写入 `config.yaml` 的 `custom_providers`，**都可用**，只是 `model.default` 决定默认走哪个。
+- 兜底是"**默认模型选择**"，不是故障转移（failover）。要切换默认 LLM，改 `LLM_BASE_URL`/`LLM_MODEL` 或清空它回到 9Router，然后重启内核生效。
+- 配置变更后**重启内核**生效（状态页"重启内核"按钮或应用中心重启）。
+
+**示例**：配 LongCat 作为兜底
+```
+LLM_BASE_URL="https://api.longcat.chat/openai"
+LLM_API_KEY="***"
+LLM_MODEL="LongCat-2.0"
+```
+重启后 `model.default = Custom LLM / LongCat-2.0`，chat 默认走 LongCat。
+
 ## 开发
 
 ```bash
