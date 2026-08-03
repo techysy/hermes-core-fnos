@@ -59,13 +59,13 @@ CONFIG_GROUPS = {
 # bg: 图标背景色, desc: 描述
 MODEL_PROVIDERS = [
     {"key": "9router", "name": "9Router", "ico": "🔧", "env": "ROUTER_API_KEY",
-     "default": True, "bg": "#2f6fed", "desc": "本机代理 (默认模型)"},
+     "default": False, "local": True, "bg": "#2f6fed", "desc": "本地代理 (本机 :20128)"},
     {"key": "deepseek", "name": "DeepSeek", "ico": "🐋", "env": "DEEPSEEK_API_KEY",
-     "default": False, "bg": "#4d6bfe", "desc": "DeepSeek API"},
+     "default": False, "local": False, "bg": "#4d6bfe", "desc": "DeepSeek API"},
     {"key": "mimo", "name": "Xiaomi MiMo", "ico": "📱", "env": "XIAOMI_API_KEY",
-     "default": False, "bg": "#ff6900", "desc": "Xiaomi MiMo API"},
+     "default": False, "local": False, "bg": "#ff6900", "desc": "Xiaomi MiMo API"},
     {"key": "longcat", "name": "LongCat", "ico": "🐱", "env": "LLM_API_KEY",
-     "default": False, "bg": "#8b5cf6", "desc": "LongCat 兜底 LLM"},
+     "default": False, "local": False, "bg": "#8b5cf6", "desc": "LongCat API"},
 ]
 
 # 供应商 base_url (用于生成 config.yaml custom_providers)
@@ -499,7 +499,7 @@ const I18N = {{
   zh: {{
     'nav-chat':'聊天','nav-status':'状态','nav-config':'配置','nav-providers':'供应商','nav-providers-title':'供应商','local-kernel':'本地内核',
     'chat-placeholder':'输入消息，Enter 发送...','chat-hint':'通过本机 api_server (8642) 对话。发送即触发一次对话。',
-    'providers-hint':'点击供应商卡片配置 API Key。默认模型为本机代理 (9Router)，其余预留待配置。',
+    'providers-hint':'点击供应商卡片配置 API Key。默认模型由安装向导设置，9Router 为本地代理（非强制默认）。',
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
     'wechat-hint':'配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。',
     'core-status':'内核状态','state':'状态','platform':'平台',
@@ -512,7 +512,7 @@ const I18N = {{
   en: {{
     'nav-chat':'Chat','nav-status':'Status','nav-config':'Config','nav-providers':'Providers','nav-providers-title':'Providers','local-kernel':'Local Kernel',
     'chat-placeholder':'Type a message, Enter to send...','chat-hint':'Chat via local api_server (8642). Sending triggers one conversation.',
-    'providers-hint':'Click a provider card to configure its API Key. Default model is local proxy (9Router); others are pending setup.',
+    'providers-hint':'Click a provider card to configure its API Key. Default model is set in install wizard; 9Router is a local proxy (not forced default).',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
     'wechat-hint':'Configure WeChat channel. Save and restart to apply. Token comes from WeChat channel.',
     'core-status':'Core Status','state':'State','platform':'Platform',
@@ -742,7 +742,7 @@ def _render_providers_grid(cfg):
         connected = bool(env_val)
         status = "connected" if connected else "pending"
         status_txt = "● 已连接" if connected else "○ 未配置"
-        badge = '<span class="p-badge">默认</span>' if p["default"] else ""
+        badge = '<span class="p-badge">默认</span>' if p["default"] else ('<span class="p-badge">本地</span>' if p.get("local") else "")
         ico_bg = p["bg"]
         cards.append(
             f'<div class="provider-card" data-provider="{p["key"]}" onclick="editProvider(\'{p["key"]}\')">'

@@ -25,31 +25,14 @@
     ]
   },
   {
-    "stepTitle": "LLM 模型连接",
+    "stepTitle": "默认模型",
     "items": [
       {
         "type": "text",
-        "field": "router_api_key",
-        "label": "9Router API Key (本机 :20128，可选)",
-        "initValue": ""
-      },
-      {
-        "type": "text",
-        "field": "llm_base_url",
-        "label": "兜底 LLM Base URL (任意 OpenAI 兼容 API，如 9Router/直连)",
-        "initValue": ""
-      },
-      {
-        "type": "text",
-        "field": "llm_api_key",
-        "label": "兜底 LLM API Token",
-        "initValue": ""
-      },
-      {
-        "type": "text",
         "field": "llm_model",
-        "label": "兜底 LLM 模型名",
-        "initValue": ""
+        "label": "默认模型名",
+        "initValue": "LongCat-2.0",
+        "tip": "api_server 默认使用的模型。其余模型供应商可在应用内「供应商」页配置。"
       }
     ]
   }

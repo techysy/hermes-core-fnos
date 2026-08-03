@@ -166,20 +166,21 @@ write_env() {
 }
 
 write_config() {
-    # 完整 config.yaml — 9Router(本机) + 通用兜底 Custom LLM (任意 OpenAI 兼容 API)
-    # model.default 优先: 填了 LLM_BASE_URL 则用兜底, 否则用 9Router
+    # 完整 config.yaml — 默认模型 + 多个供应商 (9Router/DeepSeek/MiMo/LongCat)
+    # model.default = 安装向导填的默认模型名 (LLM_MODEL)
+    # 供应商预设: 9Router 始终提供 (本地代理, 非强制默认); 其余按 API key 是否配置加入
     # 保留旧 config.yaml 中非内核管理的段落 (platforms 等消息网关配置), 避免覆盖丢失
-    DEFAULT_PROVIDER="9Router Proxy"
-    DEFAULT_MODEL="cbcn/deepseek-v4-flash"
-    if [ -n "${LLM_BASE_URL:-}" ]; then
-        DEFAULT_PROVIDER="Custom LLM"
-        DEFAULT_MODEL="${LLM_MODEL:-default}"
+    DEFAULT_MODEL="${LLM_MODEL:-default}"
+    # 默认 provider: 检测默认模型属于哪个已配置供应商
+    DEFAULT_PROVIDER=""
+    if [ -n "${ROUTER_API_KEY:-}" ] && [[ "${DEFAULT_MODEL}" == *"/"* ]]; then
+        # 默认模型带斜杠(如 cbcn/deepseek-v4-flash) 视为 9Router 路由模型
+        DEFAULT_PROVIDER="9Router Proxy"
     fi
     cat > "${HERMES_HOME}/config.yaml" <<EOF
 model:
   default: ${DEFAULT_MODEL}
   provider: ${DEFAULT_PROVIDER}
-  base_url: ${PROVIDER_BASE_URL:-}
 custom_providers:
   - name: 9Router Proxy
     base_url: http://127.0.0.1:20128/v1
@@ -191,11 +192,37 @@ custom_providers:
       - ds/deepseek-v4-flash
       - mimo/mimo-v2.5
       - nvidia/z-ai/glm-5.2
-  - name: Custom LLM
-    base_url: ${LLM_BASE_URL:-http://127.0.0.1:20128/v1}
-    api_key: ${LLM_API_KEY:-}
+EOF
+    # 追加配置了 key 的其他供应商 (DeepSeek/MiMo/LongCat)
+    if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
+        cat >> "${HERMES_HOME}/config.yaml" <<EOF
+  - name: DeepSeek
+    base_url: https://api.deepseek.com/v1
+    api_key: ${DEEPSEEK_API_KEY}
     models:
-      - ${LLM_MODEL:-default}
+      - deepseek-chat
+      - deepseek-reasoner
+EOF
+    fi
+    if [ -n "${XIAOMI_API_KEY:-}" ]; then
+        cat >> "${HERMES_HOME}/config.yaml" <<EOF
+  - name: Xiaomi MiMo
+    base_url: https://api.xiaomimimo.com/v1
+    api_key: ${XIAOMI_API_KEY}
+    models:
+      - mimo/mimo-v2.5
+EOF
+    fi
+    if [ -n "${LLM_API_KEY:-}" ]; then
+        cat >> "${HERMES_HOME}/config.yaml" <<EOF
+  - name: Custom LLM
+    base_url: ${LLM_BASE_URL:-https://api.longcat.chat/openai}
+    api_key: ${LLM_API_KEY}
+    models:
+      - ${LLM_MODEL:-LongCat-2.0}
+EOF
+    fi
+    cat >> "${HERMES_HOME}/config.yaml" <<EOF
 toolsets:
   - hermes-cli
 agent:

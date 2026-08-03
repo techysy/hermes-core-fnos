@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.4.3 (2026-08-03)
+
+### 变更 / Changed
+- **默认模型逻辑重做** — 去掉「9Router 为默认模型」假设：
+  - 安装向导只保留一个「默认模型名」入口（LLM_MODEL）
+  - 供应商预设：9Router 标记为「本地代理」（非强制默认），DeepSeek/Xiaomi MiMo/LongCat 可选配
+  - config.yaml model.default = 向导填的默认模型名，各供应商按 key 是否配置加入 custom_providers
+
 ## 0.4.2 (2026-08-03)
 
 ### 优化 / Improved
