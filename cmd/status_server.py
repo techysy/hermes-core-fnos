@@ -315,6 +315,14 @@ PAGE = """<!DOCTYPE html>
   .provider-card .p-status.pending {{ background:var(--down-bg); color:var(--down-text); }}
   .provider-card .p-badge {{ position:absolute; top:10px; right:10px; font-size:11px; padding:2px 8px; border-radius:10px; background:var(--accent); color:#fff; }}
   .provider-card .p-desc {{ font-size:11px; color:var(--muted); margin-top:6px; }}
+  /* 卡片内联配置区 (响应式) */
+  .p-edit {{ margin-top:12px; padding:12px; border-top:1px solid var(--border); }}
+  .p-edit-label {{ font-size:12px; color:var(--muted); margin-bottom:8px; }}
+  .p-edit-input {{ width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--input-bg); color:var(--text); font-size:14px; box-sizing:border-box; margin-bottom:8px; }}
+  .p-edit-btns {{ display:flex; gap:8px; }}
+  .p-edit-btns button {{ flex:1; padding:8px 0; border:none; border-radius:8px; font-size:13px; cursor:pointer; margin-top:0; }}
+  .p-edit-save {{ background:var(--accent); color:#fff; }}
+  .p-edit-cancel {{ background:var(--card); color:var(--text); border:1px solid var(--border) !important; }}
   @media (max-width: 600px) {{ .providers-grid {{ grid-template-columns:1fr 1fr; }} }}
   /* 状态网格 — 聚合分散状态 (2列, 4张卡片含内核, 适配小窗口) */
   .status-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }}
@@ -555,16 +563,54 @@ function toggleSidebar(open) {{
   overlay.classList.toggle('show', isOpen);
 }}
 const PROVIDER_ENV = {{ '9router':'ROUTER_API_KEY', 'deepseek':'DEEPSEEK_API_KEY', 'mimo':'XIAOMI_API_KEY', 'longcat':'LLM_API_KEY' }};
-async function editProvider(key) {{
+const PROVIDER_NAME = {{ '9router':'9Router','deepseek':'DeepSeek','mimo':'Xiaomi MiMo','longcat':'LongCat' }};
+function editProvider(key) {{
+  // 收起其他卡片的展开区
+  document.querySelectorAll('.p-edit').forEach(e => e.remove());
+  const card = document.querySelector('.provider-card[data-provider="' + key + '"]');
+  if (!card) return;
+  // 在卡片内插入内联配置区 (响应式)
+  const name = PROVIDER_NAME[key] || key;
+  const edit = document.createElement('div');
+  edit.className = 'p-edit';
+  // 用 DOM API 构建, 避免内联 onclick 的引号转义问题
+  const label = document.createElement('div');
+  label.className = 'p-edit-label';
+  label.textContent = name + ' API Key (留空则不改)';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'p-edit-input';
+  input.placeholder = '输入 API Key...';
+  input.autocomplete = 'off';
+  const btns = document.createElement('div');
+  btns.className = 'p-edit-btns';
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'p-edit-save';
+  saveBtn.textContent = '保存';
+  saveBtn.onclick = () => saveProvider(key);
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'p-edit-cancel';
+  cancelBtn.textContent = '取消';
+  cancelBtn.onclick = () => edit.remove();
+  btns.appendChild(saveBtn);
+  btns.appendChild(cancelBtn);
+  edit.appendChild(label);
+  edit.appendChild(input);
+  edit.appendChild(btns);
+  card.appendChild(edit);
+  input.focus();
+  input.addEventListener('keydown', (e) => {{ if (e.key === 'Enter') saveProvider(key); }});
+}}
+async function saveProvider(key) {{
   const env = PROVIDER_ENV[key] || '';
-  const name = {{ '9router':'9Router','deepseek':'DeepSeek','mimo':'Xiaomi MiMo','longcat':'LongCat' }}[key] || key;
-  const val = prompt('配置 ' + name + ' 的 API Key (留空则不改):', '');
-  if (val === null) return;
+  const edit = document.querySelector('.provider-card[data-provider="' + key + '"] .p-edit');
+  const input = edit ? edit.querySelector('input') : null;
+  const val = input ? input.value.trim() : '';
   const data = {{}};
-  data[env] = val.trim();
+  data[env] = val;
   const r = await api('/api/config', 'POST', data);
-  if (r.ok) {{ showMsg(I18N[currentLang]['saved']); setTimeout(() => location.reload(), 800); }}
-  else showMsg(I18N[currentLang]['save-fail'] + (r.error || ''), true);
+  if (r.ok) {{ setTimeout(() => location.reload(), 600); }}
+  else {{ alert('保存失败: ' + (r.error || '')); }}
 }}
 
 async function api(path, method, body) {{
