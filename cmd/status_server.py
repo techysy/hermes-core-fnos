@@ -209,17 +209,35 @@ PAGE = """<!DOCTYPE html>
     --tab-bg: #2e2e36; --tab-active: #26262e; --shadow: rgba(0,0,0,.3);
   }}
   * {{ box-sizing: border-box; }}
-  body {{ font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--text); margin:0; padding:16px; -webkit-text-size-adjust:100%; }}
-  .topbar {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }}
+  body {{ font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--text); margin:0; -webkit-text-size-adjust:100%; }}
+  /* 侧边栏布局 (参考 9Router) */
+  .layout {{ display:flex; min-height:100vh; }}
+  .sidebar {{ width:200px; background:var(--card); border-right:1px solid var(--border); padding:16px 10px; flex-shrink:0; }}
+  .sidebar-brand {{ display:flex; align-items:center; gap:8px; padding:0 8px 16px; border-bottom:1px solid var(--border); margin-bottom:12px; }}
+  .sidebar-brand .logo {{ width:28px; height:28px; border-radius:8px; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:16px; }}
+  .sidebar-brand .name {{ font-size:14px; font-weight:700; }}
+  .sidebar-brand .ver {{ font-size:11px; color:var(--muted); }}
+  .nav-item {{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--muted); margin-bottom:2px; }}
+  .nav-item:hover {{ background:var(--tab-bg); }}
+  .nav-item.active {{ background:var(--ok-bg); color:var(--ok-text); font-weight:600; }}
+  .nav-item .ico {{ font-size:15px; }}
+  .nav-section {{ font-size:11px; color:var(--muted); padding:12px 12px 4px; text-transform:uppercase; letter-spacing:.5px; }}
+  .main {{ flex:1; padding:16px; min-width:0; }}
+  .topbar {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:8px; }}
   .topbar h1 {{ font-size:20px; margin:0; }}
   .topbar-actions {{ display:flex; gap:8px; }}
   .icon-btn {{ padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:13px; cursor:pointer; }}
   .icon-btn:hover {{ opacity:.85; }}
-  .tabs {{ display:flex; gap:6px; margin-bottom:14px; }}
-  .tab {{ padding:10px 20px; border-radius:8px; border:none; background:var(--tab-bg); color:var(--muted); font-size:14px; font-weight:600; cursor:pointer; }}
-  .tab.active {{ background:var(--tab-active); color:var(--accent); box-shadow:0 1px 3px var(--shadow); }}
-  .tab-panel {{ display:none; }}
-  .tab-panel.active {{ display:block; }}
+  .hamburger {{ display:none; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:16px; cursor:pointer; }}
+  .sidebar-overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }}
+  /* 移动端: 汉堡收起侧栏 */
+  @media (max-width: 768px) {{
+    .hamburger {{ display:block; }}
+    .sidebar {{ position:fixed; left:-200px; top:0; bottom:0; z-index:50; transition:left .2s; }}
+    .sidebar.open {{ left:0; }}
+    .sidebar-overlay.show {{ display:block; }}
+    .main {{ padding:12px; }}
+  }}
   .card {{ background:var(--card); border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 1px 4px var(--shadow); }}
   /* 状态网格 — 聚合分散状态 (2列, 4张卡片含内核, 适配小窗口) */
   .status-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }}
@@ -273,21 +291,47 @@ PAGE = """<!DOCTYPE html>
 </style>
 </head>
 <body data-theme="light">
+  <div class="layout">
+  <!-- 侧边栏导航 (参考 9Router) -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">🔧</div>
+      <div>
+        <div class="name">Hermes Core</div>
+        <div class="ver" data-i18n="local-kernel">本地内核</div>
+      </div>
+    </div>
+    <div class="nav-item active" data-nav="status" onclick="switchNav('status')">
+      <span class="ico">📊</span> <span data-i18n="nav-status">状态</span>
+    </div>
+    <div class="nav-item" data-nav="config" onclick="switchNav('config')">
+      <span class="ico">⚙️</span> <span data-i18n="nav-config">配置</span>
+    </div>
+    <div class="nav-section" data-i18n="nav-channels">消息渠道</div>
+    <div class="nav-item" data-nav="feishu" onclick="switchNav('feishu')">
+      <span class="ico">💬</span> <span data-i18n="nav-feishu">飞书</span>
+    </div>
+    <div class="nav-item" data-nav="wechat" onclick="switchNav('wechat')">
+      <span class="ico">💬</span> <span data-i18n="nav-wechat">微信</span>
+    </div>
+  </div>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- 主内容区 -->
+  <div class="main">
   <div class="topbar">
-    <h1>🔧 Hermes Core</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <h1>🔧 Hermes Core</h1>
+    </div>
     <div class="topbar-actions">
       <button class="icon-btn" onclick="toggleLang()" id="btn-lang">🌐 EN</button>
       <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙</button>
     </div>
   </div>
 
-  <div class="tabs">
-    <button class="tab active" data-tab="status" onclick="switchTab('status')" data-i18n="tab-status">状态</button>
-    <button class="tab" data-tab="config" onclick="switchTab('config')" data-i18n="tab-config">配置</button>
-  </div>
-
-  <!-- 状态标签 -->
-  <div class="tab-panel active" id="panel-status">
+  <!-- 状态面板 -->
+  <div class="nav-panel" id="panel-status">
   <!-- 聚合状态网格: 内核 / 消息网关 / LLM / Dashboard (2列4卡, 适配小窗口) -->
   <div class="status-grid">
     <div class="status-card">
@@ -319,8 +363,8 @@ PAGE = """<!DOCTYPE html>
   </div>
   </div>
 
-  <!-- 配置标签 -->
-  <div class="tab-panel" id="panel-config">
+  <!-- 配置面板 -->
+  <div class="nav-panel" id="panel-config" style="display:none">
   <div class="card">
     <h2>⚙️ <span data-i18n="basic-config">基础配置</span></h2>
     <p style="font-size:12px;color:var(--muted);margin:0 0 8px;" data-i18n="config-hint">修改后点击保存，再点"重启内核"生效。敏感项已脱敏显示。</p>
@@ -329,7 +373,7 @@ PAGE = """<!DOCTYPE html>
       {FORM_FIELDS}
     </form>
     <div class="btn-row">
-      <button class="primary" onclick="saveConfig()" data-i18n="save-config">💾 保存配置</button>
+      <button class="primary" onclick="saveConfig('cfgform')" data-i18n="save-config">💾 保存配置</button>
       <button class="warn" onclick="restartCore()" data-i18n="restart">🔄 重启内核</button>
     </div>
     <p style="font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.5;" data-i18n="restart-hint">
@@ -338,13 +382,48 @@ PAGE = """<!DOCTYPE html>
   </div>
   </div>
 
+  <!-- 飞书面板 -->
+  <div class="nav-panel" id="panel-feishu" style="display:none">
+  <div class="card">
+    <h2>💬 <span data-i18n="nav-feishu">飞书</span></h2>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;" data-i18n="feishu-hint">配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。</p>
+    <div id="msg" class="msg"></div>
+    <form id="cfgform-feishu">
+      {FORM_FIELDS_FEISHU}
+    </form>
+    <div class="btn-row">
+      <button class="primary" onclick="saveConfig('cfgform-feishu')" data-i18n="save-config">💾 保存配置</button>
+    </div>
+  </div>
+  </div>
+
+  <!-- 微信面板 -->
+  <div class="nav-panel" id="panel-wechat" style="display:none">
+  <div class="card">
+    <h2>💬 <span data-i18n="nav-wechat">微信</span></h2>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;" data-i18n="wechat-hint">配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。</p>
+    <div id="msg" class="msg"></div>
+    <form id="cfgform-wechat">
+      {FORM_FIELDS_WECHAT}
+    </form>
+    <div class="btn-row">
+      <button class="primary" onclick="saveConfig('cfgform-wechat')" data-i18n="save-config">💾 保存配置</button>
+    </div>
+  </div>
+  </div>
+
   <div class="meta">Hermes Core · 本地内核 · {TS}</div>
+  </div>
+  </div>
 
 <script>
 const HERMES_AUTH = {AUTH_TOKEN};
 const I18N = {{
   zh: {{
-    'tab-status':'状态','tab-config':'配置','core-status':'内核状态','state':'状态','platform':'平台',
+    'nav-status':'状态','nav-config':'配置','nav-channels':'消息渠道','nav-feishu':'飞书','nav-wechat':'微信','local-kernel':'本地内核',
+    'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
+    'wechat-hint':'配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。',
+    'core-status':'内核状态','state':'状态','platform':'平台',
     'version':'版本','core-port':'内核端口','api-addr':'API 地址','gateway':'消息网关','fallback-llm':'兜底 LLM',
     'dashboard':'Dashboard','user':'用户','port':'端口','basic-config':'基础配置','config-hint':'修改后点击保存，再点"重启内核"生效。敏感项已脱敏显示。',
     'save-config':'💾 保存配置','restart':'🔄 重启内核','restart-hint':'ℹ️ 重启内核会同时重启 消息网关 与 cron 调度',
@@ -352,7 +431,10 @@ const I18N = {{
     'running':'● 运行中','stopped':'● 已停止','healthy':'healthy','unconfigured':'○ 未配置'
   }},
   en: {{
-    'tab-status':'Status','tab-config':'Config','core-status':'Core Status','state':'State','platform':'Platform',
+    'nav-status':'Status','nav-config':'Config','nav-channels':'Channels','nav-feishu':'Feishu','nav-wechat':'WeChat','local-kernel':'Local Kernel',
+    'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
+    'wechat-hint':'Configure WeChat channel. Save and restart to apply. Token comes from WeChat channel.',
+    'core-status':'Core Status','state':'State','platform':'Platform',
     'version':'Version','core-port':'Core Port','api-addr':'API Address','gateway':'Message Gateway','fallback-llm':'Fallback LLM',
     'dashboard':'Dashboard','user':'User','port':'Port','basic-config':'Basic Config','config-hint':'Edit then click Save, then Restart Core to apply. Sensitive fields are masked.',
     'save-config':'💾 Save Config','restart':'🔄 Restart Core','restart-hint':'ℹ️ Restarting the core also restarts the message gateway and cron scheduler',
@@ -385,9 +467,19 @@ function toggleTheme() {{
   document.body.dataset.theme = currentTheme;
   document.getElementById('btn-theme').textContent = currentTheme === 'light' ? '🌙' : '☀️';
 }}
-function switchTab(tab) {{
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+function switchNav(nav) {{
+  // 切换侧边栏菜单
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.nav === nav));
+  document.querySelectorAll('.nav-panel').forEach(p => p.style.display = (p.id === 'panel-' + nav) ? 'block' : 'none');
+  // 移动端: 切换后收起侧栏
+  if (window.innerWidth <= 768) toggleSidebar(false);
+}}
+function toggleSidebar(open) {{
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const isOpen = open === undefined ? !sidebar.classList.contains('open') : open;
+  sidebar.classList.toggle('open', isOpen);
+  overlay.classList.toggle('show', isOpen);
 }}
 
 async function api(path, method, body) {{
@@ -406,11 +498,12 @@ function showMsg(text, isErr) {{
   el.textContent = text;
   el.className = 'msg ' + (isErr ? 'err' : 'ok');
 }}
-async function saveConfig() {{
-  const form = document.getElementById('cfgform');
+async function saveConfig(formId) {{
+  const form = document.getElementById(formId || 'cfgform');
   const fd = new FormData(form);
   // 敏感字段留空 = 不修改 (保留原值)
-  const sensitive = ['API_SERVER_KEY', 'ROUTER_API_KEY', 'LLM_API_KEY', 'DASHBOARD_PASSWORD'];
+  const sensitive = ['API_SERVER_KEY', 'ROUTER_API_KEY', 'LLM_API_KEY', 'DASHBOARD_PASSWORD',
+                     'FEISHU_APP_SECRET', 'FEISHU_VERIFICATION_TOKEN', 'FEISHU_ENCRYPT_KEY', 'WEIXIN_TOKEN'];
   const data = Object.fromEntries(
     [...fd.entries()].filter(([k, v]) => !(sensitive.includes(k) && !v.trim()))
   );
@@ -433,32 +526,43 @@ applyI18n();
 """
 
 
-def _form_fields(cfg):
-    # 按分组渲染: 每个分组一个子卡片
-    groups = {}
-    for key, label, sensitive, grp in CONFIG_FIELDS:
-        groups.setdefault(grp, []).append((key, label, sensitive))
+def _render_group_fields(cfg, grp_key):
+    """渲染单个分组的字段 (含分组标题)."""
     out = []
-    for grp_key in ("core", "llm", "dash", "feishu", "wechat"):
-        fields = groups.get(grp_key, [])
-        if not fields:
+    for key, label, sensitive, grp in CONFIG_FIELDS:
+        if grp != grp_key:
             continue
-        grp_title, _ = CONFIG_GROUPS.get(grp_key, (grp_key, ""))
-        out.append(f'<h2 style="font-size:14px;color:var(--muted);margin:20px 0 4px;border-bottom:1px solid var(--border);padding-bottom:4px;">{grp_title}</h2>')
-        for key, label, sensitive in fields:
-            val = cfg.get(key, "")
-            if sensitive:
-                # 敏感字段: 不预填真值, placeholder 显示脱敏值 (需重输才改)
-                shown = _mask(val) if val else "未设置"
-                ph = f"当前值: {shown}（留空则不改）"
-                out.append(f'<label>{label}</label>')
-                out.append(f'<input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
-            else:
-                # 非敏感字段: 预填当前值, 手机直接改
-                shown = val
-                out.append(f'<label>{label}</label>')
-                out.append(f'<input type="text" name="{key}" value="{shown}" autocomplete="off">')
+        val = cfg.get(key, "")
+        if sensitive:
+            shown = _mask(val) if val else "未设置"
+            ph = f"当前值: {shown}（留空则不改）"
+            out.append(f'<label>{label}</label>')
+            out.append(f'<input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
+        else:
+            out.append(f'<label>{label}</label>')
+            out.append(f'<input type="text" name="{key}" value="{val}" autocomplete="off">')
     return "\n".join(out)
+
+
+def _form_fields(cfg):
+    """配置面板: 内核/LLM/Dashboard 分组."""
+    parts = []
+    for grp_key in ("core", "llm", "dash"):
+        grp_title, _ = CONFIG_GROUPS.get(grp_key, (grp_key, ""))
+        body = _render_group_fields(cfg, grp_key)
+        if body:
+            parts.append(f'<h2 style="font-size:14px;color:var(--muted);margin:20px 0 4px;border-bottom:1px solid var(--border);padding-bottom:4px;">{grp_title}</h2>{body}')
+    return "\n".join(parts)
+
+
+def _form_fields_feishu(cfg):
+    """飞书面板字段."""
+    return _render_group_fields(cfg, "feishu")
+
+
+def _form_fields_wechat(cfg):
+    """微信面板字段."""
+    return _render_group_fields(cfg, "wechat")
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -610,6 +714,8 @@ class Handler(BaseHTTPRequestHandler):
             DASH_USER=dash_user,
             DASH_PORT=dash_port,
             FORM_FIELDS=_form_fields(cfg),
+            FORM_FIELDS_FEISHU=_form_fields_feishu(cfg),
+            FORM_FIELDS_WECHAT=_form_fields_wechat(cfg),
             AUTH_TOKEN=json.dumps(API_KEY),   # 注入鉴权 token 到前端 JS
             TS=time.strftime("%Y-%m-%d %H:%M:%S"),
         )
