@@ -179,29 +179,51 @@ PAGE = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hermes Core</title>
 <style>
+  /* 日夜主题 CSS 变量 */
+  :root, [data-theme="light"] {{
+    --bg: #f5f6fa; --card: #ffffff; --text: #222222; --muted: #666666;
+    --border: #e0e0e0; --input-bg: #ffffff; --accent: #2f6fed;
+    --ok-bg: #e6f7ec; --ok-text: #0e9f4e; --down-bg: #fdecec; --down-text: #d93026;
+    --tab-bg: #ececec; --tab-active: #ffffff; --shadow: rgba(0,0,0,.08);
+  }}
+  [data-theme="dark"] {{
+    --bg: #1a1a1f; --card: #26262e; --text: #e8e8ea; --muted: #9a9aa0;
+    --border: #3a3a44; --input-bg: #1e1e24; --accent: #4d8dff;
+    --ok-bg: #123524; --ok-text: #34c673; --down-bg: #3a1d1d; --down-text: #ff7a70;
+    --tab-bg: #2e2e36; --tab-active: #26262e; --shadow: rgba(0,0,0,.3);
+  }}
   * {{ box-sizing: border-box; }}
-  body {{ font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:#f5f6fa; margin:0; padding:16px; -webkit-text-size-adjust:100%; }}
-  .card {{ background:#fff; border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); }}
-  h1 {{ font-size:20px; margin:0 0 12px; }}
-  h2 {{ font-size:15px; margin:16px 0 8px; color:#333; }}
+  body {{ font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--text); margin:0; padding:16px; -webkit-text-size-adjust:100%; }}
+  .topbar {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }}
+  .topbar h1 {{ font-size:20px; margin:0; }}
+  .topbar-actions {{ display:flex; gap:8px; }}
+  .icon-btn {{ padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:13px; cursor:pointer; }}
+  .icon-btn:hover {{ opacity:.85; }}
+  .tabs {{ display:flex; gap:6px; margin-bottom:14px; }}
+  .tab {{ padding:10px 20px; border-radius:8px; border:none; background:var(--tab-bg); color:var(--muted); font-size:14px; font-weight:600; cursor:pointer; }}
+  .tab.active {{ background:var(--tab-active); color:var(--accent); box-shadow:0 1px 3px var(--shadow); }}
+  .tab-panel {{ display:none; }}
+  .tab-panel.active {{ display:block; }}
+  .card {{ background:var(--card); border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 1px 4px var(--shadow); }}
+  h2 {{ font-size:15px; margin:16px 0 8px; color:var(--text); }}
   .status {{ display:inline-block; padding:4px 12px; border-radius:20px; font-size:13px; font-weight:600; }}
-  .ok {{ background:#e6f7ec; color:#0e9f4e; }}
-  .down {{ background:#fdecec; color:#d93026; }}
-  .row {{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:8px 0; border-bottom:1px solid #f0f0f0; font-size:14px; }}
+  .ok {{ background:var(--ok-bg); color:var(--ok-text); }}
+  .down {{ background:var(--down-bg); color:var(--down-text); }}
+  .row {{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:14px; }}
   .row:last-child {{ border-bottom:none; }}
-  .label {{ color:#666; flex-shrink:0; }}
-  .val {{ color:#222; font-family:monospace; word-break:break-all; text-align:right; }}
-  .meta {{ color:#999; font-size:12px; margin-top:16px; text-align:center; }}
-  label {{ display:block; font-size:13px; color:#666; margin:10px 0 4px; }}
-  input {{ width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:8px; font-size:16px; box-sizing:border-box; background:#fff; color:#222; }}
-  input:focus {{ outline:none; border-color:#2f6fed; box-shadow:0 0 0 2px rgba(47,111,237,.15); }}
+  .label {{ color:var(--muted); flex-shrink:0; }}
+  .val {{ color:var(--text); font-family:monospace; word-break:break-all; text-align:right; }}
+  .meta {{ color:var(--muted); font-size:12px; margin-top:16px; text-align:center; }}
+  label {{ display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }}
+  input {{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:16px; box-sizing:border-box; background:var(--input-bg); color:var(--text); }}
+  input:focus {{ outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(47,111,237,.15); }}
   button {{ margin-top:16px; padding:12px 16px; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:500; }}
-  .primary {{ background:#2f6fed; color:#fff; width:100%; }}
-  .warn {{ background:#f5f5f5; color:#333; border:1px solid #ddd; width:100%; }}
+  .primary {{ background:var(--accent); color:#fff; width:100%; }}
+  .warn {{ background:var(--card); color:var(--text); border:1px solid var(--border); width:100%; }}
   button:active {{ opacity:.85; }}
   .msg {{ margin-top:12px; padding:10px; border-radius:8px; font-size:13px; display:none; word-break:break-all; }}
-  .msg.ok {{ background:#e6f7ec; color:#0e9f4e; display:block; }}
-  .msg.err {{ background:#fdecec; color:#d93026; display:block; }}
+  .msg.ok {{ background:var(--ok-bg); color:var(--ok-text); display:block; }}
+  .msg.err {{ background:var(--down-bg); color:var(--down-text); display:block; }}
   .btn-row {{ display:flex; gap:10px; margin-top:16px; }}
   .btn-row button {{ margin-top:0; flex:1; }}
   /* 移动端响应式 */
@@ -214,6 +236,7 @@ PAGE = """<!DOCTYPE html>
     button {{ font-size:15px; padding:14px; }}  /* 触控友好 */
     .btn-row {{ flex-direction:column; gap:8px; }}
     .meta {{ font-size:11px; }}
+    .tab {{ padding:8px 14px; font-size:13px; }}
   }}
   @media (max-width: 320px) {{
     .row {{ flex-direction:column; gap:2px; }}
@@ -221,61 +244,128 @@ PAGE = """<!DOCTYPE html>
   }}
 </style>
 </head>
-<body>
-  <div class="card">
+<body data-theme="light">
+  <div class="topbar">
     <h1>🔧 Hermes Core</h1>
+    <div class="topbar-actions">
+      <button class="icon-btn" onclick="toggleLang()" id="btn-lang">🌐 EN</button>
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="status" onclick="switchTab('status')" data-i18n="tab-status">状态</button>
+    <button class="tab" data-tab="config" onclick="switchTab('config')" data-i18n="tab-config">配置</button>
+  </div>
+
+  <!-- 状态标签 -->
+  <div class="tab-panel active" id="panel-status">
+  <div class="card">
+    <h1>🔧 <span data-i18n="core-status">内核状态</span></h1>
     <span class="status {STATUS_CLS}">{STATUS_TEXT}</span>
     <div style="height:12px"></div>
-    <div class="row"><span class="label">状态</span><span class="val">{STATE}</span></div>
-    <div class="row"><span class="label">平台</span><span class="val">{PLATFORM}</span></div>
-    <div class="row"><span class="label">版本</span><span class="val">{VERSION}</span></div>
-    <div class="row"><span class="label">内核端口</span><span class="val">{CORE_PORT}</span></div>
-    <div class="row"><span class="label">API 地址</span><span class="val">http://127.0.0.1:{CORE_PORT}</span></div>
+    <div class="row"><span class="label" data-i18n="state">状态</span><span class="val">{STATE}</span></div>
+    <div class="row"><span class="label" data-i18n="platform">平台</span><span class="val">{PLATFORM}</span></div>
+    <div class="row"><span class="label" data-i18n="version">版本</span><span class="val">{VERSION}</span></div>
+    <div class="row"><span class="label" data-i18n="core-port">内核端口</span><span class="val">{CORE_PORT}</span></div>
+    <div class="row"><span class="label" data-i18n="api-addr">API 地址</span><span class="val">http://127.0.0.1:{CORE_PORT}</span></div>
   </div>
 
   <div class="card">
-    <h2>📡 消息网关</h2>
+    <h2>📡 <span data-i18n="gateway">消息网关</span></h2>
     <span class="status {GW_CLS}">{GW_TEXT}</span>
     <div style="height:12px"></div>
     {GW_PLATFORMS}
   </div>
 
   <div class="card">
-    <h2>🧠 兜底 LLM</h2>
+    <h2>🧠 <span data-i18n="fallback-llm">兜底 LLM</span></h2>
     <span class="status {LLM_CLS}">{LLM_TEXT}</span>
     <div style="height:12px"></div>
     {LLM_ROWS}
   </div>
 
   <div class="card">
-    <h2>📊 Dashboard</h2>
+    <h2>📊 <span data-i18n="dashboard">Dashboard</span></h2>
     <span class="status {DASH_CLS}">{DASH_TEXT}</span>
     <div style="height:12px"></div>
-    <div class="row"><span class="label">状态</span><span class="val">{DASH_DETAIL}</span></div>
-    <div class="row"><span class="label">用户</span><span class="val">{DASH_USER}</span></div>
-    <div class="row"><span class="label">端口</span><span class="val">{DASH_PORT}</span></div>
+    <div class="row"><span class="label" data-i18n="state">状态</span><span class="val">{DASH_DETAIL}</span></div>
+    <div class="row"><span class="label" data-i18n="user">用户</span><span class="val">{DASH_USER}</span></div>
+    <div class="row"><span class="label" data-i18n="port">端口</span><span class="val">{DASH_PORT}</span></div>
+  </div>
   </div>
 
+  <!-- 配置标签 -->
+  <div class="tab-panel" id="panel-config">
   <div class="card">
-    <h2>⚙️ 基础配置</h2>
-    <p style="font-size:12px;color:#999;margin:0 0 8px;">修改后点击保存，再点"重启内核"生效。敏感项已脱敏显示。</p>
+    <h2>⚙️ <span data-i18n="basic-config">基础配置</span></h2>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;" data-i18n="config-hint">修改后点击保存，再点"重启内核"生效。敏感项已脱敏显示。</p>
     <div id="msg" class="msg"></div>
     <form id="cfgform">
       {FORM_FIELDS}
     </form>
     <div class="btn-row">
-      <button class="primary" onclick="saveConfig()">💾 保存配置</button>
-      <button class="warn" onclick="restartCore()">🔄 重启内核</button>
+      <button class="primary" onclick="saveConfig()" data-i18n="save-config">💾 保存配置</button>
+      <button class="warn" onclick="restartCore()" data-i18n="restart">🔄 重启内核</button>
     </div>
-    <p style="font-size:12px;color:#999;margin:12px 0 0;line-height:1.5;">
+    <p style="font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.5;" data-i18n="restart-hint">
       ℹ️ 重启内核会同时重启 <b>消息网关</b>（Feishu/Telegram/微信等平台连接）与 cron 调度，消息平台短暂断开后自动恢复。
     </p>
+  </div>
   </div>
 
   <div class="meta">Hermes Core · 本地内核 · {TS}</div>
 
 <script>
 const HERMES_AUTH = {AUTH_TOKEN};
+const I18N = {{
+  zh: {{
+    'tab-status':'状态','tab-config':'配置','core-status':'内核状态','state':'状态','platform':'平台',
+    'version':'版本','core-port':'内核端口','api-addr':'API 地址','gateway':'消息网关','fallback-llm':'兜底 LLM',
+    'dashboard':'Dashboard','user':'用户','port':'端口','basic-config':'基础配置','config-hint':'修改后点击保存，再点"重启内核"生效。敏感项已脱敏显示。',
+    'save-config':'💾 保存配置','restart':'🔄 重启内核','restart-hint':'ℹ️ 重启内核会同时重启 消息网关 与 cron 调度',
+    'saved':'✅ 配置已保存，请点"重启内核"生效','save-fail':'❌ 保存失败: ','restarting':'🔄 内核正在重启，几秒后刷新页面查看状态','restart-fail':'❌ 重启失败: ',
+    'running':'● 运行中','stopped':'● 已停止','healthy':'healthy','unconfigured':'○ 未配置'
+  }},
+  en: {{
+    'tab-status':'Status','tab-config':'Config','core-status':'Core Status','state':'State','platform':'Platform',
+    'version':'Version','core-port':'Core Port','api-addr':'API Address','gateway':'Message Gateway','fallback-llm':'Fallback LLM',
+    'dashboard':'Dashboard','user':'User','port':'Port','basic-config':'Basic Config','config-hint':'Edit then click Save, then Restart Core to apply. Sensitive fields are masked.',
+    'save-config':'💾 Save Config','restart':'🔄 Restart Core','restart-hint':'ℹ️ Restarting the core also restarts the message gateway and cron scheduler',
+    'saved':'✅ Config saved, click "Restart Core" to apply','save-fail':'❌ Save failed: ','restarting':'🔄 Core restarting, refresh in a few seconds','restart-fail':'❌ Restart failed: ',
+    'running':'● Running','stopped':'● Stopped','healthy':'healthy','unconfigured':'○ Not configured'
+  }}
+}};
+let currentLang = localStorage.getItem('hermes_lang') || 'zh';
+let currentTheme = localStorage.getItem('hermes_theme') || 'light';
+
+function applyI18n() {{
+  document.querySelectorAll('[data-i18n]').forEach(el => {{
+    const key = el.dataset.i18n;
+    if (I18N[currentLang][key]) el.textContent = I18N[currentLang][key];
+  }});
+  document.getElementById('btn-lang').textContent = currentLang === 'zh' ? '🌐 EN' : '🌐 中文';
+  // 更新动态生成的表单 label/状态 (通过 data-i18n 无法覆盖, 用替换文本)
+  document.querySelectorAll('label').forEach(l => {{
+    // label 文本由后端生成, i18n 主要覆盖静态部分
+  }});
+}}
+function toggleLang() {{
+  currentLang = currentLang === 'zh' ? 'en' : 'zh';
+  localStorage.setItem('hermes_lang', currentLang);
+  applyI18n();
+}}
+function toggleTheme() {{
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  localStorage.setItem('hermes_theme', currentTheme);
+  document.body.dataset.theme = currentTheme;
+  document.getElementById('btn-theme').textContent = currentTheme === 'light' ? '🌙' : '☀️';
+}}
+function switchTab(tab) {{
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+}}
+
 async function api(path, method, body) {{
   const headers = {{ 'Content-Type': 'application/json' }};
   if (HERMES_AUTH) headers['Authorization'] = 'Bearer ' + HERMES_AUTH;
@@ -296,19 +386,23 @@ async function saveConfig() {{
   const form = document.getElementById('cfgform');
   const fd = new FormData(form);
   // 敏感字段留空 = 不修改 (保留原值)
-  const sensitive = ['API_SERVER_KEY', 'ROUTER_API_KEY', 'LLM_API_KEY'];
+  const sensitive = ['API_SERVER_KEY', 'ROUTER_API_KEY', 'LLM_API_KEY', 'DASHBOARD_PASSWORD'];
   const data = Object.fromEntries(
     [...fd.entries()].filter(([k, v]) => !(sensitive.includes(k) && !v.trim()))
   );
   const r = await api('/api/config', 'POST', data);
-  if (r.ok) showMsg('✅ 配置已保存，请点"重启内核"生效');
-  else showMsg('❌ 保存失败: ' + (r.error || ''), true);
+  if (r.ok) showMsg(I18N[currentLang]['saved']);
+  else showMsg(I18N[currentLang]['save-fail'] + (r.error || ''), true);
 }}
 async function restartCore() {{
   const r = await api('/api/restart', 'POST', {{}});
-  if (r.ok) showMsg('🔄 内核正在重启，几秒后刷新页面查看状态');
-  else showMsg('❌ 重启失败: ' + (r.error || ''), true);
+  if (r.ok) showMsg(I18N[currentLang]['restarting']);
+  else showMsg(I18N[currentLang]['restart-fail'] + (r.error || ''), true);
 }}
+// 初始化
+document.body.dataset.theme = currentTheme;
+document.getElementById('btn-theme').textContent = currentTheme === 'light' ? '🌙' : '☀️';
+applyI18n();
 </script>
 </body>
 </html>
