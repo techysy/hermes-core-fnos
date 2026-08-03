@@ -4,6 +4,34 @@
 
 ---
 
+## 2026-08-03 (第五次迭代)
+
+### 桌面图标消失 — ui/config 顶层 key 必须是 .url
+
+**现象**：HermesCore 应用还在跑（内核+状态页正常），但 fnOS 桌面图标完全消失。
+
+**根因**：做窗口版时把 ui/config 顶层 key 从 `.url` 改成了 `.iframe`。**fnOS 桌面图标注册要求 ui/config 顶层 key 为 `.url`**，即使 `type` 是 `"iframe"`。改成 `.iframe` 后 fnOS 不识别入口 → 桌面图标消失。
+
+**对比**（所有图标正常的 fnOS 应用）：9router、metacubexd、strava、HermesWebUI 的 ui/config 顶层 key 都是 `.url`，尽管 9router/metacubexd/strava 的 `type` 也是 `"iframe"`。
+
+**修复**：ui/config 顶层 key 固定为 `.url`，`type` 保持 `"iframe"`（窗口版）。窗口版/新标签页版的区别只在 `type` 字段，顶层 key 始终 `.url`。
+
+```json
+{
+  ".url": {                     // ← 必须 .url
+    "HermesCore.Application": {
+      "type": "iframe",          // ← 窗口版 (或 "url" 新标签页)
+      "port": "8648",
+      "url": "/"
+    }
+  }
+}
+```
+
+**教训**：fnOS 应用 ui/config 的顶层 key 永远是 `.url`（图标注册用），入口形态由内部 `type` 字段决定。不要改顶层 key。
+
+---
+
 ## 2026-08-03 (第四次迭代)
 
 ### 状态页展示消息网关 + 兜底 LLM 状态
