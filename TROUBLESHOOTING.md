@@ -4,6 +4,36 @@
 
 ---
 
+## 2026-08-03 (第三次迭代)
+
+### 跨用户残留进程无法 kill (Operation not permitted)
+
+**现象**：SSH 用 yangyu 想 kill HermesCore 应用用户（或相反）的进程，报 `Operation not permitted`。
+
+**原因**：fnOS 应用进程以应用用户（如 HermesCore uid）运行，SSH 的 yangyu 用户无跨用户 kill 权限。残留的 hermes gateway / status_server 进程占着端口，SSH 无法清理。
+
+**影响**：
+- 手动 `cmd/main restart` 时 stop 杀不掉应用用户进程 → 8642 仍被占 → start 认为"已在运行"跳过状态服务
+- 残留状态服务占 8648，新版无法启动（端口冲突）
+
+**对策**：
+- 残留进程只能由**应用中心**（以应用用户运行）或 **root** 清理
+- 让用户在应用中心"先停止再启动"，能正确清掉残留
+- 测试新版时**换不同端口**（如 8649）避免与残留冲突
+
+### 状态页加配置功能设计
+
+为满足"网页配置"，状态服务新增：
+- `GET /` 渲染状态 + 配置表单（脱敏显示）
+- `POST /api/config` 保存 gateway.env（Bearer API key 鉴权）
+- `POST /api/restart` 一键重启内核
+
+**鉴权**：所有配置 API 需 `Authorization: Bearer <API_SERVER_KEY>`，否则 401。
+**脱敏**：敏感字段（API key/token）仅显示前后几位。
+**重启**：`subprocess.Popen(["bash", cmd_main, "restart"])` 后台执行，不阻塞。
+
+---
+
 ## 2026-08-03 (第二次迭代)
 
 ### 手机 App 打开内核图标报 iframe 错误 (WebKitErrorDomain code=102)
