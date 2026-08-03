@@ -29,6 +29,8 @@ CONFIG_FIELDS = [
     ("API_SERVER_PORT", "API 端口", False, "core"),
     ("API_SERVER_KEY", "API Key", True, "core"),
     ("ROUTER_API_KEY", "9Router API Key", True, "llm"),
+    ("DEEPSEEK_API_KEY", "DeepSeek API Key", True, "llm"),
+    ("XIAOMI_API_KEY", "Xiaomi MiMo API Key", True, "llm"),
     ("LLM_BASE_URL", "兜底 LLM Base URL", False, "llm"),
     ("LLM_API_KEY", "兜底 LLM Token", True, "llm"),
     ("LLM_MODEL", "兜底模型名", False, "llm"),
@@ -50,6 +52,28 @@ CONFIG_GROUPS = {
     "dash": ("📊 Dashboard", "dash"),
     "feishu": ("💬 飞书", "feishu"),
     "wechat": ("💬 微信", "wechat"),
+}
+
+# 模型供应商 (参考 9Router providers 页)
+# key: 标识, name: 名称, ico: 图标, env: API key 的 gateway.env 字段, default: 是否默认
+# bg: 图标背景色, desc: 描述
+MODEL_PROVIDERS = [
+    {"key": "9router", "name": "9Router", "ico": "🔧", "env": "ROUTER_API_KEY",
+     "default": True, "bg": "#2f6fed", "desc": "本机代理 (默认模型)"},
+    {"key": "deepseek", "name": "DeepSeek", "ico": "🐋", "env": "DEEPSEEK_API_KEY",
+     "default": False, "bg": "#4d6bfe", "desc": "DeepSeek API"},
+    {"key": "mimo", "name": "Xiaomi MiMo", "ico": "📱", "env": "XIAOMI_API_KEY",
+     "default": False, "bg": "#ff6900", "desc": "Xiaomi MiMo API"},
+    {"key": "longcat", "name": "LongCat", "ico": "🐱", "env": "LLM_API_KEY",
+     "default": False, "bg": "#8b5cf6", "desc": "LongCat 兜底 LLM"},
+]
+
+# 供应商 base_url (用于生成 config.yaml custom_providers)
+MODEL_PROVIDER_URLS = {
+    "9router": "http://127.0.0.1:20128/v1",
+    "deepseek": "https://api.deepseek.com/v1",
+    "mimo": "https://api.xiaomimimo.com/v1",
+    "longcat": "https://api.longcat.chat/openai",
 }
 
 
@@ -239,6 +263,23 @@ PAGE = """<!DOCTYPE html>
     .main {{ padding:12px; }}
   }}
   .card {{ background:var(--card); border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 1px 4px var(--shadow); }}
+  /* 配置区块 — 分组独立卡片 */
+  .cfg-section {{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:14px; }}
+  .cfg-section-title {{ display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:var(--text); margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }}
+  .cfg-section .hint {{ font-size:11px; color:var(--muted); margin-top:10px; }}
+  .cfg-section input {{ margin-bottom:2px; }}
+  /* 模型供应商卡片网格 (参考 9Router providers) */
+  .providers-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }}
+  .provider-card {{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .15s; position:relative; }}
+  .provider-card:hover {{ border-color:var(--accent); }}
+  .provider-card .p-ico {{ width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:10px; }}
+  .provider-card .p-name {{ font-size:14px; font-weight:600; margin-bottom:4px; }}
+  .provider-card .p-status {{ font-size:12px; display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; margin-top:6px; }}
+  .provider-card .p-status.connected {{ background:var(--ok-bg); color:var(--ok-text); }}
+  .provider-card .p-status.pending {{ background:var(--down-bg); color:var(--down-text); }}
+  .provider-card .p-badge {{ position:absolute; top:10px; right:10px; font-size:11px; padding:2px 8px; border-radius:10px; background:var(--accent); color:#fff; }}
+  .provider-card .p-desc {{ font-size:11px; color:var(--muted); margin-top:6px; }}
+  @media (max-width: 600px) {{ .providers-grid {{ grid-template-columns:1fr 1fr; }} }}
   /* 状态网格 — 聚合分散状态 (2列, 4张卡片含内核, 适配小窗口) */
   .status-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }}
   .status-card {{ background:var(--card); border-radius:12px; padding:14px 16px; box-shadow:0 1px 4px var(--shadow); }}
@@ -306,6 +347,10 @@ PAGE = """<!DOCTYPE html>
     </div>
     <div class="nav-item" data-nav="config" onclick="switchNav('config')">
       <span class="ico">⚙️</span> <span data-i18n="nav-config">配置</span>
+    </div>
+    <div class="nav-section" data-i18n="nav-providers">模型供应商</div>
+    <div class="nav-item" data-nav="providers" onclick="switchNav('providers')">
+      <span class="ico">🔌</span> <span data-i18n="nav-providers-title">模型供应商</span>
     </div>
     <div class="nav-section" data-i18n="nav-channels">消息渠道</div>
     <div class="nav-item" data-nav="feishu" onclick="switchNav('feishu')">
@@ -382,6 +427,15 @@ PAGE = """<!DOCTYPE html>
   </div>
   </div>
 
+  <!-- 模型供应商面板 -->
+  <div class="nav-panel" id="panel-providers" style="display:none">
+  <div class="card">
+    <h2>🔌 <span data-i18n="nav-providers-title">模型供应商</span></h2>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px;" data-i18n="providers-hint">点击供应商卡片配置 API Key。默认模型为本机代理 (9Router)，其余预留待配置。</p>
+    {PROVIDERS_GRID}
+  </div>
+  </div>
+
   <!-- 飞书面板 -->
   <div class="nav-panel" id="panel-feishu" style="display:none">
   <div class="card">
@@ -421,6 +475,8 @@ const HERMES_AUTH = {AUTH_TOKEN};
 const I18N = {{
   zh: {{
     'nav-status':'状态','nav-config':'配置','nav-channels':'消息渠道','nav-feishu':'飞书','nav-wechat':'微信','local-kernel':'本地内核',
+    'nav-providers':'模型供应商','nav-providers-title':'模型供应商',
+    'providers-hint':'点击供应商卡片配置 API Key。默认模型为本机代理 (9Router)，其余预留待配置。',
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
     'wechat-hint':'配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。',
     'core-status':'内核状态','state':'状态','platform':'平台',
@@ -432,6 +488,8 @@ const I18N = {{
   }},
   en: {{
     'nav-status':'Status','nav-config':'Config','nav-channels':'Channels','nav-feishu':'Feishu','nav-wechat':'WeChat','local-kernel':'Local Kernel',
+    'nav-providers':'Providers','nav-providers-title':'Model Providers',
+    'providers-hint':'Click a provider card to configure its API Key. Default model is local proxy (9Router); others are pending setup.',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
     'wechat-hint':'Configure WeChat channel. Save and restart to apply. Token comes from WeChat channel.',
     'core-status':'Core Status','state':'State','platform':'Platform',
@@ -481,6 +539,18 @@ function toggleSidebar(open) {{
   sidebar.classList.toggle('open', isOpen);
   overlay.classList.toggle('show', isOpen);
 }}
+const PROVIDER_ENV = {{ '9router':'ROUTER_API_KEY', 'deepseek':'DEEPSEEK_API_KEY', 'mimo':'XIAOMI_API_KEY', 'longcat':'LLM_API_KEY' }};
+async function editProvider(key) {{
+  const env = PROVIDER_ENV[key] || '';
+  const name = {{ '9router':'9Router','deepseek':'DeepSeek','mimo':'Xiaomi MiMo','longcat':'LongCat' }}[key] || key;
+  const val = prompt('配置 ' + name + ' 的 API Key (留空则不改):', '');
+  if (val === null) return;
+  const data = {{}};
+  data[env] = val.trim();
+  const r = await api('/api/config', 'POST', data);
+  if (r.ok) {{ showMsg(I18N[currentLang]['saved']); setTimeout(() => location.reload(), 800); }}
+  else showMsg(I18N[currentLang]['save-fail'] + (r.error || ''), true);
+}}
 
 async function api(path, method, body) {{
   const headers = {{ 'Content-Type': 'application/json' }};
@@ -527,8 +597,9 @@ applyI18n();
 
 
 def _render_group_fields(cfg, grp_key):
-    """渲染单个分组的字段 (含分组标题)."""
-    out = []
+    """渲染单个分组为独立区块卡片."""
+    grp_title, _ = CONFIG_GROUPS.get(grp_key, (grp_key, ""))
+    fields_html = []
     for key, label, sensitive, grp in CONFIG_FIELDS:
         if grp != grp_key:
             continue
@@ -536,22 +607,26 @@ def _render_group_fields(cfg, grp_key):
         if sensitive:
             shown = _mask(val) if val else "未设置"
             ph = f"当前值: {shown}（留空则不改）"
-            out.append(f'<label>{label}</label>')
-            out.append(f'<input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
+            fields_html.append(f'<label>{label}</label>')
+            fields_html.append(f'<input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
         else:
-            out.append(f'<label>{label}</label>')
-            out.append(f'<input type="text" name="{key}" value="{val}" autocomplete="off">')
-    return "\n".join(out)
+            fields_html.append(f'<label>{label}</label>')
+            fields_html.append(f'<input type="text" name="{key}" value="{val}" autocomplete="off">')
+    if not fields_html:
+        return ""
+    return (f'<div class="cfg-section">'
+            f'<div class="cfg-section-title">{grp_title}</div>'
+            f'{"".join(fields_html)}'
+            f'</div>')
 
 
 def _form_fields(cfg):
-    """配置面板: 内核/LLM/Dashboard 分组."""
+    """配置面板: 内核/LLM/Dashboard 分组 (独立区块卡片)."""
     parts = []
     for grp_key in ("core", "llm", "dash"):
-        grp_title, _ = CONFIG_GROUPS.get(grp_key, (grp_key, ""))
         body = _render_group_fields(cfg, grp_key)
         if body:
-            parts.append(f'<h2 style="font-size:14px;color:var(--muted);margin:20px 0 4px;border-bottom:1px solid var(--border);padding-bottom:4px;">{grp_title}</h2>{body}')
+            parts.append(body)
     return "\n".join(parts)
 
 
@@ -563,6 +638,28 @@ def _form_fields_feishu(cfg):
 def _form_fields_wechat(cfg):
     """微信面板字段."""
     return _render_group_fields(cfg, "wechat")
+
+
+def _render_providers_grid(cfg):
+    """渲染模型供应商卡片网格 (参考 9Router providers)."""
+    cards = []
+    for p in MODEL_PROVIDERS:
+        env_val = cfg.get(p["env"], "")
+        connected = bool(env_val)
+        status = "connected" if connected else "pending"
+        status_txt = "● 已连接" if connected else "○ 未配置"
+        badge = '<span class="p-badge">默认</span>' if p["default"] else ""
+        ico_bg = p["bg"]
+        cards.append(
+            f'<div class="provider-card" data-provider="{p["key"]}" onclick="editProvider(\'{p["key"]}\')">'
+            f'{badge}'
+            f'<div class="p-ico" style="background:{ico_bg};color:#fff;">{p["ico"]}</div>'
+            f'<div class="p-name">{p["name"]}</div>'
+            f'<span class="p-status {status}">{status_txt}</span>'
+            f'<div class="p-desc">{p["desc"]}</div>'
+            f'</div>'
+        )
+    return '<div class="providers-grid">' + "".join(cards) + "</div>"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -716,6 +813,7 @@ class Handler(BaseHTTPRequestHandler):
             FORM_FIELDS=_form_fields(cfg),
             FORM_FIELDS_FEISHU=_form_fields_feishu(cfg),
             FORM_FIELDS_WECHAT=_form_fields_wechat(cfg),
+            PROVIDERS_GRID=_render_providers_grid(cfg),
             AUTH_TOKEN=json.dumps(API_KEY),   # 注入鉴权 token 到前端 JS
             TS=time.strftime("%Y-%m-%d %H:%M:%S"),
         )

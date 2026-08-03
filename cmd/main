@@ -90,6 +90,7 @@ start() {
     export API_SERVER_KEY="${API_SERVER_KEY:-webui-gateway-key-2026}"
     # 传递 LLM provider keys
     export XIAOMI_API_KEY="${XIAOMI_API_KEY:-}"
+    export DEEPSEEK_API_KEY="${DEEPSEEK_API_KEY:-}"
     # 消息渠道 env (飞书/微信) — gateway.env 是 source 进来的非 export, 需显式 export 给 hermes
     # 飞书渠道: adapter 读 FEISHU_APP_ID/APP_SECRET/ENCRYPT_KEY/VERIFICATION_TOKEN
     export FEISHU_APP_ID="${FEISHU_APP_ID:-}"

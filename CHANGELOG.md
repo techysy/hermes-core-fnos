@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.3.8 (2026-08-03)
+
+### 变更 / Changed
+- **配置分区块** — 配置页每个分组改为独立区块卡片（内核/LLM连接/Dashboard 带边框背景标题，视觉明显分隔）
+- **模型供应商页（参考 9Router providers）** — 新增"模型供应商"侧边栏菜单：
+  - 卡片网格显示供应商（9Router 默认已连接 / DeepSeek / Xiaomi MiMo / LongCat）
+  - 点击卡片配置 API Key
+  - 默认模型为本机代理 (9Router)，其余预留
+- 新增 DEEPSEEK_API_KEY / XIAOMI_API_KEY 配置字段
+
 ## 0.3.7 (2026-08-03)
 
 ### 变更 / Changed
