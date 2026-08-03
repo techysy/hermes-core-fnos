@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.7 (2026-08-03)
+
+### 修复 / Fixed
+- **保存配置报 unauthorized** — 前端 JS 未带鉴权 token，后端 Bearer 鉴权返回 401。现在前端自动注入 API key 作为 Bearer 头。
+
 ## 0.2.6 (2026-08-03)
 
 ### 变更 / Changed

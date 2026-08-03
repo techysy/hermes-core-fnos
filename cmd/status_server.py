@@ -235,10 +235,13 @@ PAGE = """<!DOCTYPE html>
   <div class="meta">Hermes Core · 本地内核 · {TS}</div>
 
 <script>
+const HERMES_AUTH = {AUTH_TOKEN};
 async function api(path, method, body) {{
+  const headers = {{ 'Content-Type': 'application/json' }};
+  if (HERMES_AUTH) headers['Authorization'] = 'Bearer ' + HERMES_AUTH;
   const res = await fetch(path, {{
     method,
-    headers: {{ 'Content-Type': 'application/json' }},
+    headers,
     body: body ? JSON.stringify(body) : undefined
   }});
   const data = await res.json().catch(() => ({{}}));
@@ -407,6 +410,7 @@ class Handler(BaseHTTPRequestHandler):
             LLM_TEXT=llm_text,
             LLM_ROWS="\n".join(llm_rows),
             FORM_FIELDS=_form_fields(cfg),
+            AUTH_TOKEN=json.dumps(API_KEY),   # 注入鉴权 token 到前端 JS
             TS=time.strftime("%Y-%m-%d %H:%M:%S"),
         )
         body = html.encode()
