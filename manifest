@@ -1,5 +1,5 @@
 appname               = HermesCore
-version               = 0.3.5
+version               = 0.3.6
 display_name          = Hermes Core
 desc                  = Hermes Agent 本地内核 — 独立 Gateway API 服务，供 Hermes WebUI 等前端连接
 arch                  = x86_64

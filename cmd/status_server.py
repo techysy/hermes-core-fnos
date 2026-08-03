@@ -23,7 +23,7 @@ CONFIG_FILE = os.environ.get("CORE_CONFIG", "")
 CMD_MAIN = os.environ.get("CORE_CMD", "")
 
 # 可配置字段: (gateway.env key, 表单 label, 是否敏感, 分组)
-# 分组: core=内核 / llm=LLM连接 / dash=Dashboard
+# 分组: core=内核 / llm=LLM连接 / dash=Dashboard / feishu=飞书 / wechat=微信
 CONFIG_FIELDS = [
     ("API_SERVER_HOST", "监听地址", False, "core"),
     ("API_SERVER_PORT", "API 端口", False, "core"),
@@ -35,6 +35,12 @@ CONFIG_FIELDS = [
     ("DASHBOARD_ENABLED", "Dashboard 开关(true/false)", False, "dash"),
     ("DASHBOARD_USER", "Dashboard 用户名", False, "dash"),
     ("DASHBOARD_PASSWORD", "Dashboard 密码", True, "dash"),
+    ("FEISHU_APP_ID", "飞书应用 App ID", False, "feishu"),
+    ("FEISHU_APP_SECRET", "飞书应用 Secret", True, "feishu"),
+    ("FEISHU_VERIFICATION_TOKEN", "飞书验证 Token(验证码)", True, "feishu"),
+    ("FEISHU_ENCRYPT_KEY", "飞书加密 Key", True, "feishu"),
+    ("WEIXIN_ACCOUNT_ID", "微信账号 ID", False, "wechat"),
+    ("WEIXIN_TOKEN", "微信 Token(验证码)", True, "wechat"),
 ]
 
 # 配置分组标签
@@ -42,6 +48,8 @@ CONFIG_GROUPS = {
     "core": ("🔧 内核", "core"),
     "llm": ("🧠 LLM 连接", "llm"),
     "dash": ("📊 Dashboard", "dash"),
+    "feishu": ("💬 飞书", "feishu"),
+    "wechat": ("💬 微信", "wechat"),
 }
 
 
@@ -431,7 +439,7 @@ def _form_fields(cfg):
     for key, label, sensitive, grp in CONFIG_FIELDS:
         groups.setdefault(grp, []).append((key, label, sensitive))
     out = []
-    for grp_key in ("core", "llm", "dash"):
+    for grp_key in ("core", "llm", "dash", "feishu", "wechat"):
         fields = groups.get(grp_key, [])
         if not fields:
             continue

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.3.6 (2026-08-03)
+
+### 新增 / Added
+- **飞书/微信消息渠道配置** — 配置页新增两个分组：
+  - 💬 飞书：App ID / Secret / 验证 Token(验证码) / 加密 Key
+  - 💬 微信：账号 ID / Token(验证码)
+  - cmd/main 启动时 export 飞书/微信 env 给 hermes gateway，配置后重启生效
+
 ## 0.3.5 (2026-08-03)
 
 ### 变更 / Changed

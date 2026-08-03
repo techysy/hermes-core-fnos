@@ -90,6 +90,15 @@ start() {
     export API_SERVER_KEY="${API_SERVER_KEY:-webui-gateway-key-2026}"
     # 传递 LLM provider keys
     export XIAOMI_API_KEY="${XIAOMI_API_KEY:-}"
+    # 消息渠道 env (飞书/微信) — gateway.env 是 source 进来的非 export, 需显式 export 给 hermes
+    # 飞书渠道: adapter 读 FEISHU_APP_ID/APP_SECRET/ENCRYPT_KEY/VERIFICATION_TOKEN
+    export FEISHU_APP_ID="${FEISHU_APP_ID:-}"
+    export FEISHU_APP_SECRET="${FEISHU_APP_SECRET:-}"
+    export FEISHU_VERIFICATION_TOKEN="${FEISHU_VERIFICATION_TOKEN:-}"
+    export FEISHU_ENCRYPT_KEY="${FEISHU_ENCRYPT_KEY:-}"
+    # 微信渠道: weixin.py 读 WEIXIN_ACCOUNT_ID/TOKEN
+    export WEIXIN_ACCOUNT_ID="${WEIXIN_ACCOUNT_ID:-}"
+    export WEIXIN_TOKEN="${WEIXIN_TOKEN:-}"
 
     cd "${DATA_DIR}"
     nohup "${HERMES_BIN}" gateway run >> "${LOG}" 2>&1 &
