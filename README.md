@@ -41,9 +41,10 @@ curl -sf http://127.0.0.1:8642/health
 
 - 内核安装在应用数据目录的 venv（`/vol4/@appdata/HermesCore/venv`），首次安装需联网 `pip install hermes-agent`（约 1-2 分钟）。
 - `HERMES_HOME` 指向 `/vol4/@appdata/HermesCore/hermes_home`，不依赖系统用户 HOME。
-- **状态页 + 配置** (`:8648`) — 网页内查看内核/消息网关/兜底 LLM 状态，并可编辑保存基础配置（监听地址/端口/API key/9Router/LLM 连接），保存后一键重启生效。iframe 窗口版，fnOS 桌面窗口内直接操作。
+- **状态页 + 配置** (`:8648`) — 网页内查看内核/消息网关/兜底 LLM/Dashboard 状态，并可编辑保存基础配置（监听地址/端口/API key/9Router/LLM/Dashboard 连接），保存后一键重启生效。iframe 窗口版，fnOS 桌面窗口内直接操作。
   - 📡 消息网关：显示 gateway 运行状态 + 各平台（Feishu/Telegram/微信/api_server）在线状态
   - 🧠 兜底 LLM：探测 LLM API 连接，显示连接正常/失败/未配置 + 可用模型
+  - 📊 Dashboard：显示 Hermes 原生 dashboard 运行状态 + 用户名 + 端口
 
 ## 配置
 
@@ -60,6 +61,9 @@ curl -sf http://127.0.0.1:8642/health
 | `LLM_BASE_URL` | 兜底 LLM Base URL（任意 OpenAI 兼容 API） |
 | `LLM_API_KEY` | 兜底 API Token |
 | `LLM_MODEL` | 兜底模型名 |
+| `DASHBOARD_ENABLED` | 是否启用 Hermes 原生 dashboard（true/false） |
+| `DASHBOARD_USER` | dashboard 登录用户名 |
+| `DASHBOARD_PASSWORD` | dashboard 登录密码 |
 
 优先级：填了 `llm_base_url` 用兜底（Custom LLM），否则用 9Router。都不填则默认 9Router。
 
@@ -75,6 +79,42 @@ curl -sf http://127.0.0.1:8642/health
 | `llm_model` | 兜底模型名 |
 
 优先级：填了 `llm_base_url` 用兜底（Custom LLM），否则用 9Router。都不填则默认 9Router。
+
+## Hermes 原生 Dashboard
+
+HermesCore 可同时启动 Hermes 原生 Web 管理界面（dashboard，端口 **9119**），便于三方软件/浏览器管理连接。
+
+### 启用
+
+在状态页"基础配置"或 gateway.env 配置：
+```
+DASHBOARD_ENABLED=true
+DASHBOARD_USER=admin
+DASHBOARD_PASSWORD=***
+```
+重启内核后，`8642`（Gateway API）与 `9119`（dashboard）同时启动。未设密码时自动生成随机密码（记录在 `core.log`）。
+
+### 三方软件连接
+
+Dashboard 用 Basic Auth 认证，登录端点 `POST /auth/password-login`：
+
+```bash
+# 1. 登录拿 session cookie (JSON, 必须带 provider=basic)
+curl -c cookie.txt -X POST http://<NAS>:9119/auth/password-login \
+  -H 'Content-Type: application/json' \
+  -d '{"provider":"basic","username":"admin","password":"***"}'
+# → {"ok":true,"next":"/"}
+
+# 2. 带 cookie 访问 dashboard API
+curl -b cookie.txt http://<NAS>:9119/api/sessions
+```
+
+### 端口
+
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| Gateway API | 8642 | OpenAI 兼容 API |
+| Dashboard | 9119 | Hermes Web 管理界面 |
 
 ## 兜底 LLM 逻辑
 

@@ -4,6 +4,31 @@
 
 ---
 
+## 2026-08-03 (第八次迭代)
+
+### 更新 HermesCore 后配置丢失 — install_callback 空向导覆盖
+
+**现象**：应用中心更新 HermesCore（v0.3.0）后，gateway.env 的 ROUTER_API_KEY / LLM_BASE_URL（LongCat 兜底）全被清空。
+
+**根因**：fnOS 更新时也走 `install_callback`，而它**无条件用空向导值覆盖 gateway.env**（`cat >`）。更新时安装向导为空 → 配置全清空。
+
+**修复**（v0.3.1）：install_callback 仅首次安装（gateway.env 不存在）或向导显式传值时写入，更新时向导为空则**保留已有 gateway.env**。
+
+**教训**：fnOS 的 install_callback 在首次安装和更新时都会触发。凡是用 `cat >` 写配置的 install_callback，必须区分首次 vs 更新，避免空向导清空已有配置。
+
+### 集成 Hermes 原生 dashboard（9119）
+
+**做法**：
+- cmd/main 启动 gateway 后，`DASHBOARD_ENABLED=true` 时再启动 `hermes dashboard --port 9119 --host 0.0.0.0 --skip-build --no-open`
+- config.yaml 追加 `dashboard.basic_auth`（username/password），公开绑定必须有认证
+- Basic Auth 登录端点：`POST /auth/password-login`（JSON + `provider=basic`），**不是** /api/login
+- 未设 DASHBOARD_PASSWORD 时自动生成随机密码并记录 core.log
+- stop() 需一并停 dashboard（DASHBOARD_PID + pkill）
+
+**坑**：config.yaml 无 `dashboard` 段时，仅设 env 变量 Basic Auth 不生效。SSH `nohup ... &` 后台起 dashboard 会挂起 SSH 连接，用 `setsid ... < /dev/null` 分离。
+
+---
+
 ## 2026-08-03 (第七次迭代)
 
 ### 合并配置入口 — 去掉应用设置页
