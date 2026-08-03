@@ -213,14 +213,16 @@ PAGE = """<!DOCTYPE html>
   .tab-panel {{ display:none; }}
   .tab-panel.active {{ display:block; }}
   .card {{ background:var(--card); border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 1px 4px var(--shadow); }}
-  /* 状态网格 — 聚合分散状态 (3列, 3张卡片平铺一行) */
-  .status-grid {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px; }}
-  .status-card {{ background:var(--card); border-radius:12px; padding:16px; box-shadow:0 1px 4px var(--shadow); }}
-  .status-card h3 {{ font-size:13px; margin:0 0 10px; color:var(--muted); display:flex; align-items:center; gap:6px; }}
-  .status-card .mini {{ font-size:12px; color:var(--muted); line-height:1.6; }}
+  /* 状态网格 — 聚合分散状态 (2列, 4张卡片含内核, 适配小窗口) */
+  .status-grid {{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }}
+  .status-card {{ background:var(--card); border-radius:12px; padding:14px 16px; box-shadow:0 1px 4px var(--shadow); }}
+  .status-card h3 {{ font-size:13px; margin:0 0 8px; color:var(--muted); display:flex; align-items:center; gap:6px; }}
+  .status-card .mini {{ font-size:12px; color:var(--muted); line-height:1.7; }}
   .status-card .mini b {{ color:var(--text); font-weight:500; }}
+  .status-card .mini .row {{ padding:2px 0; border:none; font-size:12px; }}
+  .status-card .mini .row .val {{ font-size:12px; }}
   /* 移动端网格变单列 */
-  @media (max-width: 800px) {{
+  @media (max-width: 600px) {{
     .status-grid {{ grid-template-columns:1fr; }}
   }}
   h2 {{ font-size:15px; margin:16px 0 8px; color:var(--text); }}
@@ -278,19 +280,18 @@ PAGE = """<!DOCTYPE html>
 
   <!-- 状态标签 -->
   <div class="tab-panel active" id="panel-status">
-  <div class="card">
-    <h1>🔧 <span data-i18n="core-status">内核状态</span></h1>
-    <span class="status {STATUS_CLS}">{STATUS_TEXT}</span>
-    <div style="height:12px"></div>
-    <div class="row"><span class="label" data-i18n="state">状态</span><span class="val">{STATE}</span></div>
-    <div class="row"><span class="label" data-i18n="platform">平台</span><span class="val">{PLATFORM}</span></div>
-    <div class="row"><span class="label" data-i18n="version">版本</span><span class="val">{VERSION}</span></div>
-    <div class="row"><span class="label" data-i18n="core-port">内核端口</span><span class="val">{CORE_PORT}</span></div>
-    <div class="row"><span class="label" data-i18n="api-addr">API 地址</span><span class="val">http://127.0.0.1:{CORE_PORT}</span></div>
-  </div>
-
-  <!-- 聚合状态网格: 消息网关 / LLM / Dashboard -->
+  <!-- 聚合状态网格: 内核 / 消息网关 / LLM / Dashboard (2列4卡, 适配小窗口) -->
   <div class="status-grid">
+    <div class="status-card">
+      <h3>🔧 <span data-i18n="core-status">内核状态</span> <span class="status {STATUS_CLS}">{STATUS_TEXT}</span></h3>
+      <div class="mini">
+        <div class="row"><span class="label" data-i18n="state">状态</span><span class="val">{STATE}</span></div>
+        <div class="row"><span class="label" data-i18n="platform">平台</span><span class="val">{PLATFORM}</span></div>
+        <div class="row"><span class="label" data-i18n="version">版本</span><span class="val">{VERSION}</span></div>
+        <div class="row"><span class="label" data-i18n="core-port">内核端口</span><span class="val">{CORE_PORT}</span></div>
+        <div class="row"><span class="label" data-i18n="api-addr">API 地址</span><span class="val">http://127.0.0.1:{CORE_PORT}</span></div>
+      </div>
+    </div>
     <div class="status-card">
       <h3>📡 <span data-i18n="gateway">消息网关</span> <span class="status {GW_CLS}">{GW_TEXT}</span></h3>
       <div class="mini">{GW_PLATFORMS_MIN}</div>
