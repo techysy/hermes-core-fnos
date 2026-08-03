@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.8 (2026-08-03)
+
+### 变更 / Changed
+- **合并配置入口** — 移除 fnOS 应用设置页（wizard/config + config_callback 改 no-op），统一配置走安装向导 + 状态页网页，消除重复配置
+
 ## 0.2.7 (2026-08-03)
 
 ### 修复 / Fixed

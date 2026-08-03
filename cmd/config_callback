@@ -1,20 +1,3 @@
 #!/bin/bash
-# config_callback — 保存内核运行配置 (应用设置页传入, 裸字段名)
-set -uo pipefail
-APP_NAME="${TRIM_APPNAME:-HermesCore}"
-DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
-mkdir -p "${DATA_DIR}"
-
-cat > "${DATA_DIR}/gateway.env" <<EOF
-API_SERVER_HOST="${api_server_host:-0.0.0.0}"
-API_SERVER_PORT="${api_server_port:-8642}"
-API_SERVER_KEY="${api_server_key:-webui-gateway-key-2026}"
-ROUTER_API_KEY="${router_api_key:-}"
-# 通用兜底 LLM 连接 (任意 OpenAI 兼容 API)
-LLM_BASE_URL="${llm_base_url:-}"
-LLM_API_KEY="${llm_api_key:-}"
-LLM_MODEL="${llm_model:-}"
-EOF
-chmod 600 "${DATA_DIR}/gateway.env"
-echo "Config saved"
+# config_callback — no-op (应用设置页已移除, 配置统一走状态页网页 / 安装向导)
 exit 0
