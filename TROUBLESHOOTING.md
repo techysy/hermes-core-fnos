@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-08-03 (第六次迭代)
+
+### 保存配置报 unauthorized (401)
+
+**现象**：状态页点"保存配置"报 `❌ 保存失败: unauthorized`。
+
+**根因**：后端 `POST /api/config` 和 `/api/restart` 用 Bearer API key 鉴权，但**前端 JS 的 `api()` 函数没带 `Authorization` 头** → 401。
+
+**修复**：后端渲染页面时把 API key 注入前端 JS：
+```js
+const HERMES_AUTH = {AUTH_TOKEN};   // AUTH_TOKEN 由后端 json.dumps(API_KEY) 注入
+```
+`api()` 函数自动带 `Authorization: Bearer HERMES_AUTH`。
+
+**安全说明**：API key 会出现在页面 HTML 的 JS 里。因状态服务只监听局域网 NAS，可接受。如更严格，可改用 session/cookie 或一次性 token。
+
+**验证**：带鉴权保存 `{"ok": true}`，无鉴权仍 `{"ok": false, "error": "unauthorized"}`。
+
+---
+
 ## 2026-08-03 (第五次迭代)
 
 ### 桌面图标消失 — ui/config 顶层 key 必须是 .url
