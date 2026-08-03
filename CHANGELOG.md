@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.3.1 (2026-08-03)
+
+### 修复 / Fixed
+- **更新时配置不再被清空** — install_callback 不再无条件覆盖 gateway.env。仅在首次安装（gateway.env 不存在）或向导显式传值时写入，更新时向导为空则保留已有配置（修复更新 HermesCore 后 ROUTER_API_KEY/兜底 LLM 丢失）
+
 ## 0.3.0 (2026-08-03)
 
 ### 修复 / Fixed

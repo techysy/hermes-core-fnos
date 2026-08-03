@@ -18,7 +18,11 @@ echo "[$(date '+%F %T')] install_callback start (user=$(id -un) uid=$(id -u))" >
 
 # 保存安装向导传入的配置 (wizard_ 前缀) 到 gateway.env
 # 字段: api_server_*, router_api_key (9Router), llm_base_url/api_key/model (通用兜底)
-cat > "${DATA_DIR}/gateway.env" <<EOF
+# 注意: 更新时(升级)也走 install_callback, 但向导为空. 为避免覆盖已有配置,
+# 仅当 gateway.env 不存在(首次安装) 或向导显式传值时才写入。
+if [ ! -f "${DATA_DIR}/gateway.env" ]; then
+    # 首次安装: 写入向导配置 (允许空值)
+    cat > "${DATA_DIR}/gateway.env" <<EOF
 API_SERVER_HOST="${wizard_api_server_host:-0.0.0.0}"
 API_SERVER_PORT="${wizard_api_server_port:-8642}"
 API_SERVER_KEY="${wizard_api_server_key:-webui-gateway-key-2026}"
@@ -27,8 +31,24 @@ LLM_BASE_URL="${wizard_llm_base_url:-}"
 LLM_API_KEY="${wizard_llm_api_key:-}"
 LLM_MODEL="${wizard_llm_model:-}"
 EOF
-chmod 600 "${DATA_DIR}/gateway.env"
-echo "[$(date '+%F %T')] saved wizard config" >> "${LOG}"
+    chmod 600 "${DATA_DIR}/gateway.env"
+    echo "[$(date '+%F %T')] saved wizard config (first install)" >> "${LOG}"
+elif [ -n "${wizard_router_api_key:-}${wizard_llm_base_url:-}${wizard_api_server_key:-}" ]; then
+    # 更新场景: 仅当向导显式传了关键配置才更新, 避免清空已有配置
+    cat > "${DATA_DIR}/gateway.env" <<EOF
+API_SERVER_HOST="${wizard_api_server_host:-0.0.0.0}"
+API_SERVER_PORT="${wizard_api_server_port:-8642}"
+API_SERVER_KEY="${wizard_api_server_key:-webui-gateway-key-2026}"
+ROUTER_API_KEY="${wizard_router_api_key:-}"
+LLM_BASE_URL="${wizard_llm_base_url:-}"
+LLM_API_KEY="${wizard_llm_api_key:-}"
+LLM_MODEL="${wizard_llm_model:-}"
+EOF
+    chmod 600 "${DATA_DIR}/gateway.env"
+    echo "[$(date '+%F %T')] saved wizard config (wizard had values)" >> "${LOG}"
+else
+    echo "[$(date '+%F %T')] upgrade: wizard empty, preserving existing gateway.env" >> "${LOG}"
+fi
 
 # 已安装则跳过
 if [ -x "${VENV}/bin/hermes" ]; then
