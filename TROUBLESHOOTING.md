@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-08-03 (第七次迭代)
+
+### 合并配置入口 — 去掉应用设置页
+
+**背景**：状态页网页配置与 fnOS 应用设置页（wizard/config + config_callback）功能重复，造成冗余。
+
+**决策**（用户偏好）：保留安装向导 + 状态页网页配置，**去掉应用设置页**。
+
+**改动**：
+- 删除 `wizard/config`（应用设置页入口）
+- `cmd/config_callback` 改为 no-op（保留文件满足 fnOS 9 生命周期脚本要求，但不做事）
+- 保留 `wizard/install` + `install_callback`（安装向导首次引导配置到 gateway.env）
+
+**配置链路（最终）**：
+- 安装向导 → install_callback → gateway.env
+- 状态页网页 → POST /api/config → gateway.env
+
+**注意**：fnOS 要求 9 个 lifecycle 脚本（install/config/upgrade/uninstall × init/callback）都存在，所以 config_callback 不能删文件，只能改 no-op。
+
+---
+
 ## 2026-08-03 (第六次迭代)
 
 ### 保存配置报 unauthorized (401)
