@@ -148,25 +148,46 @@ PAGE = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hermes Core</title>
 <style>
-  body {{ font-family: -apple-system, "PingFang SC", sans-serif; background:#f5f6fa; margin:0; padding:16px; }}
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:#f5f6fa; margin:0; padding:16px; -webkit-text-size-adjust:100%; }}
   .card {{ background:#fff; border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 1px 4px rgba(0,0,0,.08); }}
   h1 {{ font-size:20px; margin:0 0 12px; }}
   h2 {{ font-size:15px; margin:16px 0 8px; color:#333; }}
   .status {{ display:inline-block; padding:4px 12px; border-radius:20px; font-size:13px; font-weight:600; }}
   .ok {{ background:#e6f7ec; color:#0e9f4e; }}
   .down {{ background:#fdecec; color:#d93026; }}
-  .row {{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f0f0f0; font-size:14px; }}
+  .row {{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:8px 0; border-bottom:1px solid #f0f0f0; font-size:14px; }}
   .row:last-child {{ border-bottom:none; }}
-  .label {{ color:#666; }} .val {{ color:#222; font-family:monospace; }}
+  .label {{ color:#666; flex-shrink:0; }}
+  .val {{ color:#222; font-family:monospace; word-break:break-all; text-align:right; }}
   .meta {{ color:#999; font-size:12px; margin-top:16px; text-align:center; }}
   label {{ display:block; font-size:13px; color:#666; margin:10px 0 4px; }}
-  input {{ width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; font-size:14px; box-sizing:border-box; }}
-  button {{ margin-top:16px; padding:10px 16px; border:none; border-radius:8px; font-size:14px; cursor:pointer; }}
-  .primary {{ background:#2f6fed; color:#fff; }}
-  .warn {{ background:#f5f5f5; color:#333; border:1px solid #ddd; }}
-  .msg {{ margin-top:12px; padding:10px; border-radius:8px; font-size:13px; display:none; }}
+  input {{ width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:8px; font-size:16px; box-sizing:border-box; background:#fff; color:#222; }}
+  input:focus {{ outline:none; border-color:#2f6fed; box-shadow:0 0 0 2px rgba(47,111,237,.15); }}
+  button {{ margin-top:16px; padding:12px 16px; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:500; }}
+  .primary {{ background:#2f6fed; color:#fff; width:100%; }}
+  .warn {{ background:#f5f5f5; color:#333; border:1px solid #ddd; width:100%; }}
+  button:active {{ opacity:.85; }}
+  .msg {{ margin-top:12px; padding:10px; border-radius:8px; font-size:13px; display:none; word-break:break-all; }}
   .msg.ok {{ background:#e6f7ec; color:#0e9f4e; display:block; }}
   .msg.err {{ background:#fdecec; color:#d93026; display:block; }}
+  .btn-row {{ display:flex; gap:10px; margin-top:16px; }}
+  .btn-row button {{ margin-top:0; flex:1; }}
+  /* 移动端响应式 */
+  @media (max-width: 480px) {{
+    body {{ padding:10px; }}
+    .card {{ padding:16px; border-radius:10px; margin-bottom:10px; }}
+    h1 {{ font-size:18px; }}
+    .row {{ font-size:14px; padding:7px 0; }}
+    input {{ font-size:16px; padding:12px; }}  /* ≥16px 防 iOS 自动缩放 */
+    button {{ font-size:15px; padding:14px; }}  /* 触控友好 */
+    .btn-row {{ flex-direction:column; gap:8px; }}
+    .meta {{ font-size:11px; }}
+  }}
+  @media (max-width: 320px) {{
+    .row {{ flex-direction:column; gap:2px; }}
+    .val {{ text-align:left; }}
+  }}
 </style>
 </head>
 <body>
@@ -202,9 +223,11 @@ PAGE = """<!DOCTYPE html>
     <form id="cfgform">
       {FORM_FIELDS}
     </form>
-    <button class="primary" onclick="saveConfig()">💾 保存配置</button>
-    <button class="warn" onclick="restartCore()">🔄 重启内核</button>
-    <p style="font-size:12px;color:#999;margin:12px 0 0;">
+    <div class="btn-row">
+      <button class="primary" onclick="saveConfig()">💾 保存配置</button>
+      <button class="warn" onclick="restartCore()">🔄 重启内核</button>
+    </div>
+    <p style="font-size:12px;color:#999;margin:12px 0 0;line-height:1.5;">
       ℹ️ 重启内核会同时重启 <b>消息网关</b>（Feishu/Telegram/微信等平台连接）与 cron 调度，消息平台短暂断开后自动恢复。
     </p>
   </div>
@@ -228,7 +251,12 @@ function showMsg(text, isErr) {{
 }}
 async function saveConfig() {{
   const form = document.getElementById('cfgform');
-  const data = Object.fromEntries(new FormData(form).entries());
+  const fd = new FormData(form);
+  // 敏感字段留空 = 不修改 (保留原值)
+  const sensitive = ['API_SERVER_KEY', 'ROUTER_API_KEY', 'LLM_API_KEY'];
+  const data = Object.fromEntries(
+    [...fd.entries()].filter(([k, v]) => !(sensitive.includes(k) && !v.trim()))
+  );
   const r = await api('/api/config', 'POST', data);
   if (r.ok) showMsg('✅ 配置已保存，请点"重启内核"生效');
   else showMsg('❌ 保存失败: ' + (r.error || ''), true);
@@ -248,10 +276,17 @@ def _form_fields(cfg):
     out = []
     for key, label, sensitive in CONFIG_FIELDS:
         val = cfg.get(key, "")
-        shown = _mask(val) if sensitive else val
-        ph = "(当前值: " + shown + ")" if val else "(未设置)"
-        out.append(f'<label>{label}</label>')
-        out.append(f'<input type="text" name="{key}" placeholder="{ph}" value="">')
+        if sensitive:
+            # 敏感字段: 不预填真值, placeholder 显示脱敏值 (需重输才改)
+            shown = _mask(val) if val else "未设置"
+            ph = f"当前值: {shown}（留空则不改）"
+            out.append(f'<label>{label}</label>')
+            out.append(f'<input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
+        else:
+            # 非敏感字段: 预填当前值, 手机直接改
+            shown = val
+            out.append(f'<label>{label}</label>')
+            out.append(f'<input type="text" name="{key}" value="{shown}" autocomplete="off">')
     return "\n".join(out)
 
 
