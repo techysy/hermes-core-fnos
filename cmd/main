@@ -101,7 +101,7 @@ start() {
 }
 
 start_status_server() {
-    # 启动状态页服务 (:8648), 供手机 App/浏览器 iframe 查看内核状态
+    # 启动状态页服务 (:8648), 供手机 App/浏览器 iframe 查看内核状态 + 配置
     [ -f "${STATUS_SRC}" ] || { log "status_server.py not found (${STATUS_SRC})"; return 0; }
     if [ -f "${STATUS_PID}" ] && kill -0 "$(cat "${STATUS_PID}")" 2>/dev/null; then
         return 0
@@ -110,6 +110,7 @@ start_status_server() {
     PY=/usr/bin/python3
     [ -x "${VENV}/bin/python" ] && PY="${VENV}/bin/python"
     STATUS_PORT="${STATUS_PORT}" CORE_PORT="${PORT}" CORE_API_KEY="${API_SERVER_KEY}" \
+      CORE_CONFIG="${CONFIG_FILE}" CORE_CMD="${CMD_DIR}/main" \
       nohup "${PY}" "${STATUS_SRC}" >> "${STATUS_LOG}" 2>&1 &
     echo $! > "${STATUS_PID}"
     log "status server started (pid $(cat "${STATUS_PID}")) :${STATUS_PORT}"

@@ -41,7 +41,25 @@ curl -sf http://127.0.0.1:8642/health
 
 - 内核安装在应用数据目录的 venv（`/vol4/@appdata/HermesCore/venv`），首次安装需联网 `pip install hermes-agent`（约 1-2 分钟）。
 - `HERMES_HOME` 指向 `/vol4/@appdata/HermesCore/hermes_home`，不依赖系统用户 HOME。
-- **状态页** (`:8648`) — 提供内核健康状态的 HTML 页面，桌面图标/手机 App 打开即见（iframe 窗口版，避免 iframe 加载 JSON API 报错）。
+- **状态页 + 配置** (`:8648`) — 网页内查看内核健康状态，并可编辑保存基础配置（监听地址/端口/API key/9Router/LLM 连接），保存后一键重启生效。iframe 窗口版，fnOS 桌面窗口内直接操作。
+
+## 配置
+
+安装向导 / 应用设置页 / **状态页网页** 三种方式均可配置。网页配置最直观：打开内核图标 → "基础配置"表单 → 保存 → 重启内核生效。
+
+支持配置项：
+
+| 字段 | 说明 |
+|------|------|
+| `API_SERVER_HOST` | 内核监听地址 |
+| `API_SERVER_PORT` | 内核 API 端口 |
+| `API_SERVER_KEY` | 内核 API Key（鉴权用） |
+| `ROUTER_API_KEY` | 9Router API Key（本机 :20128，可选） |
+| `LLM_BASE_URL` | 兜底 LLM Base URL（任意 OpenAI 兼容 API） |
+| `LLM_API_KEY` | 兜底 API Token |
+| `LLM_MODEL` | 兜底模型名 |
+
+优先级：填了 `llm_base_url` 用兜底（Custom LLM），否则用 9Router。都不填则默认 9Router。
 
 ## LLM 模型连接配置（安装向导 / 应用设置页）
 
