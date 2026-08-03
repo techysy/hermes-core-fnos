@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.2.5 (2026-08-03)
+
+### 修复 / Fixed
+- **桌面图标消失** — ui/config 顶层 key 从 `.iframe` 改回 `.url`（fnOS 图标注册要求 `.url` 顶层 key，即使 type 是 iframe）。保持窗口版 type: "iframe"。
+
 ## 0.2.4 (2026-08-03)
 
 ### 新增 / Added

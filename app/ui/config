@@ -1,5 +1,5 @@
 {
-  ".iframe": {
+  ".url": {
     "HermesCore.Application": {
       "title": "Hermes Core",
       "icon": "images/icon_{0}.png",
