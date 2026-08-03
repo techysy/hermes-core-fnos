@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.3.0 (2026-08-03)
+
+### 修复 / Fixed
+- **配置保存不再误清空** — 状态页 `POST /api/config` 只更新提交的字段，未提交字段保留原值（之前保存时未填的字段会被清空，如兜底 LLM）
+- **保留 platforms 段** — cmd/main 重新生成 config.yaml 时保留已有 `platforms:` 段（飞书/Telegram/微信等消息网关配置），不再因重启覆盖丢失
+
+### 说明 / Docs
+- 兜底 LLM 逻辑：填了 `LLM_BASE_URL` 用 Custom LLM（任意 OpenAI 兼容 API），否则用 9Router。详见 README。
+
 ## 0.2.9 (2026-08-03)
 
 ### 修复 / Fixed

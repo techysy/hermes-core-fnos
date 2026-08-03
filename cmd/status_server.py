@@ -60,13 +60,20 @@ def _load_config():
 
 
 def _save_config(data):
-    """写 gateway.env."""
+    """写 gateway.env. 只更新前端提交的字段, 未提交的保留原值 (避免误清空)."""
     if not CONFIG_FILE:
         return False, "CONFIG_FILE 未配置"
     try:
+        # 读当前值, 未提交的字段保留原值
+        current = _load_config()
         with open(CONFIG_FILE, "w") as f:
             for key, _, _sens in CONFIG_FIELDS:
-                val = data.get(key, "")
+                if key in data:
+                    # 前端提交了 → 用新值 (留空 = 清空该字段)
+                    val = data.get(key, "").strip()
+                else:
+                    # 前端没提交 → 保留原值
+                    val = current.get(key, "")
                 f.write(f'{key}="{val}"\n')
         os.chmod(CONFIG_FILE, 0o600)
         return True, "saved"

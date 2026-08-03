@@ -72,6 +72,9 @@ start() {
     mkdir -p "${HERMES_HOME}"
     [ ! -f "${HERMES_HOME}/.env" ] && write_env
     # config.yaml 每次启动都重新生成, 确保用最新的 gateway.env 配置 (ROUTER_API_KEY 等)
+    # 先提取旧 config.yaml 的 platforms 段 (飞书等消息网关配置), 避免覆盖丢失
+    OLD_PLATFORMS=""
+    [ -f "${HERMES_HOME}/config.yaml" ] && OLD_PLATFORMS="$(awk '/^platforms:/{flag=1} flag' "${HERMES_HOME}/config.yaml")"
     write_config
 
     export HERMES_HOME
@@ -130,6 +133,7 @@ write_env() {
 write_config() {
     # 完整 config.yaml — 9Router(本机) + 通用兜底 Custom LLM (任意 OpenAI 兼容 API)
     # model.default 优先: 填了 LLM_BASE_URL 则用兜底, 否则用 9Router
+    # 保留旧 config.yaml 中非内核管理的段落 (platforms 等消息网关配置), 避免覆盖丢失
     DEFAULT_PROVIDER="9Router Proxy"
     DEFAULT_MODEL="cbcn/deepseek-v4-flash"
     if [ -n "${LLM_BASE_URL:-}" ]; then
@@ -168,6 +172,13 @@ api_server:
   host: "0.0.0.0"
   port: 8642
 EOF
+    # 保留已有 config.yaml 中 cmd/main 未管理的段落 (如 platforms 消息网关/自定义配置),
+    # 避免每次启动覆盖丢失飞书等平台配置。
+    # 方法: 覆盖前先把旧 config.yaml 里的 platforms 段存起来, 写完后追加回去。
+    if [ -n "${OLD_PLATFORMS:-}" ]; then
+        printf '%s' "${OLD_PLATFORMS}" >> "${HERMES_HOME}/config.yaml"
+        log "preserved platforms section from previous config.yaml"
+    fi
 }
 
 stop() {
