@@ -22,19 +22,27 @@ BIND_HOST = os.environ.get("STATUS_HOST", "0.0.0.0")
 CONFIG_FILE = os.environ.get("CORE_CONFIG", "")
 CMD_MAIN = os.environ.get("CORE_CMD", "")
 
-# 可配置字段: (gateway.env key, 表单 label, 是否敏感)
+# 可配置字段: (gateway.env key, 表单 label, 是否敏感, 分组)
+# 分组: core=内核 / llm=LLM连接 / dash=Dashboard
 CONFIG_FIELDS = [
-    ("API_SERVER_HOST", "监听地址", False),
-    ("API_SERVER_PORT", "API 端口", False),
-    ("API_SERVER_KEY", "API Key", True),
-    ("ROUTER_API_KEY", "9Router API Key", True),
-    ("LLM_BASE_URL", "兜底 LLM Base URL", False),
-    ("LLM_API_KEY", "兜底 LLM Token", True),
-    ("LLM_MODEL", "兜底模型名", False),
-    ("DASHBOARD_ENABLED", "Dashboard 开关(true/false)", False),
-    ("DASHBOARD_USER", "Dashboard 用户名", False),
-    ("DASHBOARD_PASSWORD", "Dashboard 密码", True),
+    ("API_SERVER_HOST", "监听地址", False, "core"),
+    ("API_SERVER_PORT", "API 端口", False, "core"),
+    ("API_SERVER_KEY", "API Key", True, "core"),
+    ("ROUTER_API_KEY", "9Router API Key", True, "llm"),
+    ("LLM_BASE_URL", "兜底 LLM Base URL", False, "llm"),
+    ("LLM_API_KEY", "兜底 LLM Token", True, "llm"),
+    ("LLM_MODEL", "兜底模型名", False, "llm"),
+    ("DASHBOARD_ENABLED", "Dashboard 开关(true/false)", False, "dash"),
+    ("DASHBOARD_USER", "Dashboard 用户名", False, "dash"),
+    ("DASHBOARD_PASSWORD", "Dashboard 密码", True, "dash"),
 ]
+
+# 配置分组标签
+CONFIG_GROUPS = {
+    "core": ("🔧 内核", "core"),
+    "llm": ("🧠 LLM 连接", "llm"),
+    "dash": ("📊 Dashboard", "dash"),
+}
 
 
 def _mask(v):
@@ -70,7 +78,7 @@ def _save_config(data):
         # 读当前值, 未提交的字段保留原值
         current = _load_config()
         with open(CONFIG_FILE, "w") as f:
-            for key, _, _sens in CONFIG_FIELDS:
+            for key, _, _sens, _grp in CONFIG_FIELDS:
                 if key in data:
                     # 前端提交了 → 用新值 (留空 = 清空该字段)
                     val = data.get(key, "").strip()
@@ -205,6 +213,16 @@ PAGE = """<!DOCTYPE html>
   .tab-panel {{ display:none; }}
   .tab-panel.active {{ display:block; }}
   .card {{ background:var(--card); border-radius:12px; padding:20px; margin-bottom:12px; box-shadow:0 1px 4px var(--shadow); }}
+  /* 状态网格 — 聚合分散状态 (3列, 3张卡片平铺一行) */
+  .status-grid {{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px; }}
+  .status-card {{ background:var(--card); border-radius:12px; padding:16px; box-shadow:0 1px 4px var(--shadow); }}
+  .status-card h3 {{ font-size:13px; margin:0 0 10px; color:var(--muted); display:flex; align-items:center; gap:6px; }}
+  .status-card .mini {{ font-size:12px; color:var(--muted); line-height:1.6; }}
+  .status-card .mini b {{ color:var(--text); font-weight:500; }}
+  /* 移动端网格变单列 */
+  @media (max-width: 800px) {{
+    .status-grid {{ grid-template-columns:1fr; }}
+  }}
   h2 {{ font-size:15px; margin:16px 0 8px; color:var(--text); }}
   .status {{ display:inline-block; padding:4px 12px; border-radius:20px; font-size:13px; font-weight:600; }}
   .ok {{ background:var(--ok-bg); color:var(--ok-text); }}
@@ -271,27 +289,24 @@ PAGE = """<!DOCTYPE html>
     <div class="row"><span class="label" data-i18n="api-addr">API 地址</span><span class="val">http://127.0.0.1:{CORE_PORT}</span></div>
   </div>
 
-  <div class="card">
-    <h2>📡 <span data-i18n="gateway">消息网关</span></h2>
-    <span class="status {GW_CLS}">{GW_TEXT}</span>
-    <div style="height:12px"></div>
-    {GW_PLATFORMS}
-  </div>
-
-  <div class="card">
-    <h2>🧠 <span data-i18n="fallback-llm">兜底 LLM</span></h2>
-    <span class="status {LLM_CLS}">{LLM_TEXT}</span>
-    <div style="height:12px"></div>
-    {LLM_ROWS}
-  </div>
-
-  <div class="card">
-    <h2>📊 <span data-i18n="dashboard">Dashboard</span></h2>
-    <span class="status {DASH_CLS}">{DASH_TEXT}</span>
-    <div style="height:12px"></div>
-    <div class="row"><span class="label" data-i18n="state">状态</span><span class="val">{DASH_DETAIL}</span></div>
-    <div class="row"><span class="label" data-i18n="user">用户</span><span class="val">{DASH_USER}</span></div>
-    <div class="row"><span class="label" data-i18n="port">端口</span><span class="val">{DASH_PORT}</span></div>
+  <!-- 聚合状态网格: 消息网关 / LLM / Dashboard -->
+  <div class="status-grid">
+    <div class="status-card">
+      <h3>📡 <span data-i18n="gateway">消息网关</span> <span class="status {GW_CLS}">{GW_TEXT}</span></h3>
+      <div class="mini">{GW_PLATFORMS_MIN}</div>
+    </div>
+    <div class="status-card">
+      <h3>🧠 <span data-i18n="fallback-llm">兜底 LLM</span> <span class="status {LLM_CLS}">{LLM_TEXT}</span></h3>
+      <div class="mini">{LLM_ROWS_MIN}</div>
+    </div>
+    <div class="status-card">
+      <h3>📊 <span data-i18n="dashboard">Dashboard</span> <span class="status {DASH_CLS}">{DASH_TEXT}</span></h3>
+      <div class="mini">
+        <div><b data-i18n="state">状态</b>: {DASH_DETAIL}</div>
+        <div><b data-i18n="user">用户</b>: {DASH_USER}</div>
+        <div><b data-i18n="port">端口</b>: {DASH_PORT}</div>
+      </div>
+    </div>
   </div>
   </div>
 
@@ -410,20 +425,30 @@ applyI18n();
 
 
 def _form_fields(cfg):
+    # 按分组渲染: 每个分组一个子卡片
+    groups = {}
+    for key, label, sensitive, grp in CONFIG_FIELDS:
+        groups.setdefault(grp, []).append((key, label, sensitive))
     out = []
-    for key, label, sensitive in CONFIG_FIELDS:
-        val = cfg.get(key, "")
-        if sensitive:
-            # 敏感字段: 不预填真值, placeholder 显示脱敏值 (需重输才改)
-            shown = _mask(val) if val else "未设置"
-            ph = f"当前值: {shown}（留空则不改）"
-            out.append(f'<label>{label}</label>')
-            out.append(f'<input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
-        else:
-            # 非敏感字段: 预填当前值, 手机直接改
-            shown = val
-            out.append(f'<label>{label}</label>')
-            out.append(f'<input type="text" name="{key}" value="{shown}" autocomplete="off">')
+    for grp_key in ("core", "llm", "dash"):
+        fields = groups.get(grp_key, [])
+        if not fields:
+            continue
+        grp_title, _ = CONFIG_GROUPS.get(grp_key, (grp_key, ""))
+        out.append(f'<h2 style="font-size:14px;color:var(--muted);margin:20px 0 4px;border-bottom:1px solid var(--border);padding-bottom:4px;">{grp_title}</h2>')
+        for key, label, sensitive in fields:
+            val = cfg.get(key, "")
+            if sensitive:
+                # 敏感字段: 不预填真值, placeholder 显示脱敏值 (需重输才改)
+                shown = _mask(val) if val else "未设置"
+                ph = f"当前值: {shown}（留空则不改）"
+                out.append(f'<label>{label}</label>')
+                out.append(f'<input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
+            else:
+                # 非敏感字段: 预填当前值, 手机直接改
+                shown = val
+                out.append(f'<label>{label}</label>')
+                out.append(f'<input type="text" name="{key}" value="{shown}" autocomplete="off">')
     return "\n".join(out)
 
 
@@ -468,7 +493,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 data = {}
             # 只接受白名单字段
-            allowed = {k for k, _, _ in CONFIG_FIELDS}
+            allowed = {k for k, _, _, _ in CONFIG_FIELDS}
             clean = {k: (v or "").strip() for k, v in data.items() if k in allowed}
             ok, err = _save_config(clean)
             self._json({"ok": ok, "error": err} if not ok else {"ok": True})
@@ -513,6 +538,15 @@ class Handler(BaseHTTPRequestHandler):
                 gw_platforms.append(f'<div class="row"><span class="label">{ptext}</span></div>')
         else:
             gw_platforms.append('<div class="row"><span class="label" style="color:#999">未检测到平台</span></div>')
+        # 紧凑版 (mini 卡片)
+        gw_platforms_min = []
+        if plats:
+            for name, p in plats.items():
+                pstate = p.get("state", "?") if isinstance(p, dict) else "?"
+                ptext = f'{name}: <b>{pstate}</b>'
+                gw_platforms_min.append(f'<div>{ptext}</div>')
+        else:
+            gw_platforms_min.append('<div style="color:#999">未检测到平台</div>')
 
         # 兜底 LLM 状态
         llm = _llm_status()
@@ -528,6 +562,11 @@ class Handler(BaseHTTPRequestHandler):
             llm_rows.append(f'<div class="row"><span class="label">模型</span><span class="val">{llm["model"]}</span></div>')
         if llm.get("models"):
             llm_rows.append(f'<div class="row"><span class="label">可用模型</span><span class="val">{"，".join(llm["models"])}</span></div>')
+        # 紧凑版 (mini 卡片)
+        llm_rows_min = []
+        llm_rows_min.append(f'<div>状态: <b>{llm.get("msg", "")}</b></div>')
+        if llm.get("model"):
+            llm_rows_min.append(f'<div>模型: <b>{llm["model"]}</b></div>')
 
         # Dashboard 状态
         dash = _dashboard_status()
@@ -551,9 +590,11 @@ class Handler(BaseHTTPRequestHandler):
             GW_CLS=gw_cls,
             GW_TEXT=gw_text,
             GW_PLATFORMS="\n".join(gw_platforms),
+            GW_PLATFORMS_MIN="\n".join(gw_platforms_min),
             LLM_CLS=llm_cls,
             LLM_TEXT=llm_text,
             LLM_ROWS="\n".join(llm_rows),
+            LLM_ROWS_MIN="\n".join(llm_rows_min),
             DASH_CLS=dash_cls,
             DASH_TEXT=dash_text,
             DASH_DETAIL=dash_detail,
