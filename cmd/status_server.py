@@ -31,6 +31,9 @@ CONFIG_FIELDS = [
     ("LLM_BASE_URL", "兜底 LLM Base URL", False),
     ("LLM_API_KEY", "兜底 LLM Token", True),
     ("LLM_MODEL", "兜底模型名", False),
+    ("DASHBOARD_ENABLED", "Dashboard 开关(true/false)", False),
+    ("DASHBOARD_USER", "Dashboard 用户名", False),
+    ("DASHBOARD_PASSWORD", "Dashboard 密码", True),
 ]
 
 
@@ -127,6 +130,27 @@ def _gateway_status():
         return {"state": "unknown", "error": str(e), "platforms": {}, "connected": []}
 
 
+def _dashboard_status():
+    """探测 Hermes 原生 dashboard (9119) 状态."""
+    cfg = _load_config()
+    enabled = cfg.get("DASHBOARD_ENABLED", "").strip().lower() in ("true", "1", "yes")
+    user = cfg.get("DASHBOARD_USER", "") or "admin"
+    port = 9119
+    ok = False
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/login", method="GET")
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            ok = resp.status == 200
+    except Exception:
+        ok = False
+    return {
+        "enabled": enabled,
+        "ok": ok,
+        "user": user,
+        "port": port,
+    }
+
+
 def _llm_status():
     """探测兜底 LLM API 连接状态 (LLM_BASE_URL/v1/models)."""
     cfg = _load_config()
@@ -221,6 +245,15 @@ PAGE = """<!DOCTYPE html>
     <span class="status {LLM_CLS}">{LLM_TEXT}</span>
     <div style="height:12px"></div>
     {LLM_ROWS}
+  </div>
+
+  <div class="card">
+    <h2>📊 Dashboard</h2>
+    <span class="status {DASH_CLS}">{DASH_TEXT}</span>
+    <div style="height:12px"></div>
+    <div class="row"><span class="label">状态</span><span class="val">{DASH_DETAIL}</span></div>
+    <div class="row"><span class="label">用户</span><span class="val">{DASH_USER}</span></div>
+    <div class="row"><span class="label">端口</span><span class="val">{DASH_PORT}</span></div>
   </div>
 
   <div class="card">
@@ -400,7 +433,18 @@ class Handler(BaseHTTPRequestHandler):
         if llm.get("model"):
             llm_rows.append(f'<div class="row"><span class="label">模型</span><span class="val">{llm["model"]}</span></div>')
         if llm.get("models"):
-            llm_rows.append(f'<div class="row"><span class="label">可用模型</span><span class="val">{", ".join(llm["models"])}</span></div>')
+            llm_rows.append(f'<div class="row"><span class="label">可用模型</span><span class="val">{"，".join(llm["models"])}</span></div>')
+
+        # Dashboard 状态
+        dash = _dashboard_status()
+        if not dash.get("enabled"):
+            dash_cls, dash_text, dash_detail = "down", "○ 未启用", "配置 DASHBOARD_ENABLED=true 启用"
+        elif dash.get("ok"):
+            dash_cls, dash_text, dash_detail = "ok", "● 运行中", "运行中"
+        else:
+            dash_cls, dash_text, dash_detail = "down", "● 已启用未运行", "未运行（重启内核生效）"
+        dash_user = dash.get("user", "-")
+        dash_port = dash.get("port", 9119)
 
         cfg = _load_config()
         html = PAGE.format(
@@ -416,6 +460,11 @@ class Handler(BaseHTTPRequestHandler):
             LLM_CLS=llm_cls,
             LLM_TEXT=llm_text,
             LLM_ROWS="\n".join(llm_rows),
+            DASH_CLS=dash_cls,
+            DASH_TEXT=dash_text,
+            DASH_DETAIL=dash_detail,
+            DASH_USER=dash_user,
+            DASH_PORT=dash_port,
             FORM_FIELDS=_form_fields(cfg),
             AUTH_TOKEN=json.dumps(API_KEY),   # 注入鉴权 token 到前端 JS
             TS=time.strftime("%Y-%m-%d %H:%M:%S"),

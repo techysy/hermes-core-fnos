@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.3.2 (2026-08-03)
+
+### 新增 / Added
+- **Hermes 原生 dashboard 集成** — HermesCore 启动时同时启动 dashboard（9119），供三方软件/Web 管理连接
+  - config.yaml 自动生成 `dashboard.basic_auth`（用户名/密码）
+  - gateway.env 新增 `DASHBOARD_ENABLED` / `DASHBOARD_USER` / `DASHBOARD_PASSWORD`
+  - 状态页显示 dashboard 状态（运行/未启用）+ 支持网页配置
+  - 登录端点：`POST /auth/password-login`（JSON: provider=basic, username, password）
+  - 未设密码时自动生成随机密码（记录在 core.log）
+
 ## 0.3.1 (2026-08-03)
 
 ### 修复 / Fixed

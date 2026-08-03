@@ -27,6 +27,11 @@ LOG="${DATA_DIR}/core.log"
 PID_FILE="${DATA_DIR}/core.pid"
 STATUS_PID="${DATA_DIR}/status.pid"
 STATUS_LOG="${DATA_DIR}/status.log"
+DASHBOARD_PORT=9119
+DASHBOARD_PID="${DATA_DIR}/dashboard.pid"
+DASHBOARD_LOG="${DATA_DIR}/dashboard.log"
+DASHBOARD_USER="${DASHBOARD_USER:-admin}"
+DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-}"
 # 用 cmd/main 自身所在目录定位 status_server.py (同一目录), 兼容 fnOS 各种 TRIM_APPDEST
 CMD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATUS_SRC="${CMD_DIR}/status_server.py"
@@ -96,12 +101,32 @@ start() {
         if curl -sf -m3 -H "Authorization: Bearer ${API_SERVER_KEY}" "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
             log "core ready on :${PORT} after ${i}s"
             start_status_server
+            start_dashboard
             return 0
         fi
         sleep 1
     done
     log "core start timeout on :${PORT}"
     return 1
+}
+
+start_dashboard() {
+    # 启动 Hermes 原生 dashboard (:9119), 供三方软件/Web 管理连接
+    [ "${DASHBOARD_ENABLED:-false}" = "true" ] || { log "dashboard disabled (DASHBOARD_ENABLED!=true)"; return 0; }
+    [ -x "${VENV}/bin/hermes" ] || { log "dashboard: hermes not found"; return 0; }
+    if [ -f "${DASHBOARD_PID}" ] && kill -0 "$(cat "${DASHBOARD_PID}")" 2>/dev/null; then
+        return 0
+    fi
+    # 未配置密码则生成随机密码并提示 (dashboard 公开绑定必须认证)
+    if [ -z "${DASHBOARD_PASSWORD:-}" ]; then
+        DASHBOARD_PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)"
+        log "dashboard: no password set, generated random: ${DASHBOARD_PASSWORD} (set DASHBOARD_PASSWORD to control)"
+    fi
+    export HERMES_HOME
+    nohup "${VENV}/bin/hermes" dashboard --port "${DASHBOARD_PORT}" --host 0.0.0.0 --skip-build --no-open >> "${DASHBOARD_LOG}" 2>&1 &
+    echo $! > "${DASHBOARD_PID}"
+    log "dashboard started (pid $(cat "${DASHBOARD_PID}")) :${DASHBOARD_PORT} user=${DASHBOARD_USER}"
+    sleep 2
 }
 
 start_status_server() {
@@ -172,6 +197,17 @@ api_server:
   host: "0.0.0.0"
   port: 8642
 EOF
+    # 追加 dashboard.basic_auth (如配置了 DASHBOARD_USER/PASSWORD)
+    if [ -n "${DASHBOARD_USER:-}" ] && [ -n "${DASHBOARD_PASSWORD:-}" ]; then
+        cat >> "${HERMES_HOME}/config.yaml" <<EOF
+dashboard:
+  basic_auth:
+    username: "${DASHBOARD_USER}"
+    password: "${DASHBOARD_PASSWORD}"
+    session_ttl_seconds: 43200
+EOF
+        log "dashboard.basic_auth configured (user=${DASHBOARD_USER})"
+    fi
     # 保留已有 config.yaml 中 cmd/main 未管理的段落 (如 platforms 消息网关/自定义配置),
     # 避免每次启动覆盖丢失飞书等平台配置。
     # 方法: 覆盖前先把旧 config.yaml 里的 platforms 段存起来, 写完后追加回去。
@@ -182,6 +218,16 @@ EOF
 }
 
 stop() {
+    # 0) 停 dashboard
+    if [ -f "${DASHBOARD_PID}" ]; then
+        DPID=$(cat "${DASHBOARD_PID}")
+        kill "${DPID}" 2>/dev/null || true
+        sleep 1
+        kill -9 "${DPID}" 2>/dev/null || true
+        rm -f "${DASHBOARD_PID}"
+        log "dashboard stopped (pid ${DPID})"
+    fi
+    pkill -f "hermes dashboard --port ${DASHBOARD_PORT}" 2>/dev/null || true
     # 1) 停状态服务
     if [ -f "${STATUS_PID}" ]; then
         SPID=$(cat "${STATUS_PID}")
