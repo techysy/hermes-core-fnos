@@ -100,6 +100,47 @@ def _core_health():
         return False, {"error": str(e)}
 
 
+def _gateway_status():
+    """读取 /health/detailed, 返回消息网关 + 平台状态."""
+    try:
+        req = urllib.request.Request(f"http://{CORE_HOST}:{CORE_PORT}/health/detailed",
+                                     headers={"Authorization": f"Bearer {API_KEY}"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            data = json.loads(resp.read().decode())
+        gw_state = data.get("gateway_state", "unknown")
+        platforms = data.get("platforms", {}) or {}
+        connected = [k for k, v in platforms.items() if isinstance(v, dict) and v.get("state") == "connected"]
+        return {
+            "state": gw_state,
+            "platforms": platforms,
+            "connected": connected,
+            "raw": data,
+        }
+    except Exception as e:
+        return {"state": "unknown", "error": str(e), "platforms": {}, "connected": []}
+
+
+def _llm_status():
+    """探测兜底 LLM API 连接状态 (LLM_BASE_URL/v1/models)."""
+    cfg = _load_config()
+    base = cfg.get("LLM_BASE_URL", "")
+    key = cfg.get("LLM_API_KEY", "")
+    model = cfg.get("LLM_MODEL", "")
+    if not base:
+        # 未配置兜底, 显示为"未配置" (用 9Router 或无)
+        return {"configured": False, "ok": False, "msg": "未配置兜底 LLM（默认使用 9Router）"}
+    url = base.rstrip("/") + "/v1/models"
+    headers = {"Authorization": f"Bearer {key}"} if key else {}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            models = [m.get("id", "") for m in data.get("data", [])][:5] if isinstance(data.get("data"), list) else []
+            return {"configured": True, "ok": True, "msg": f"连接正常 ({len(data.get('data', []))} 模型)", "model": model, "models": models}
+    except Exception as e:
+        return {"configured": True, "ok": False, "msg": f"连接失败: {e}", "model": model}
+
+
 PAGE = """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -141,6 +182,20 @@ PAGE = """<!DOCTYPE html>
   </div>
 
   <div class="card">
+    <h2>📡 消息网关</h2>
+    <span class="status {GW_CLS}">{GW_TEXT}</span>
+    <div style="height:12px"></div>
+    {GW_PLATFORMS}
+  </div>
+
+  <div class="card">
+    <h2>🧠 兜底 LLM</h2>
+    <span class="status {LLM_CLS}">{LLM_TEXT}</span>
+    <div style="height:12px"></div>
+    {LLM_ROWS}
+  </div>
+
+  <div class="card">
     <h2>⚙️ 基础配置</h2>
     <p style="font-size:12px;color:#999;margin:0 0 8px;">修改后点击保存，再点"重启内核"生效。敏感项已脱敏显示。</p>
     <div id="msg" class="msg"></div>
@@ -149,6 +204,9 @@ PAGE = """<!DOCTYPE html>
     </form>
     <button class="primary" onclick="saveConfig()">💾 保存配置</button>
     <button class="warn" onclick="restartCore()">🔄 重启内核</button>
+    <p style="font-size:12px;color:#999;margin:12px 0 0;">
+      ℹ️ 重启内核会同时重启 <b>消息网关</b>（Feishu/Telegram/微信等平台连接）与 cron 调度，消息平台短暂断开后自动恢复。
+    </p>
   </div>
 
   <div class="meta">Hermes Core · 本地内核 · {TS}</div>
@@ -261,6 +319,44 @@ class Handler(BaseHTTPRequestHandler):
             status_cls, status_text = "down", "● 未运行"
             state = info.get("error", "unreachable")
             platform = version = "-"
+
+        # 消息网关状态
+        gw = _gateway_status()
+        if gw.get("state") == "running":
+            gw_cls, gw_text = "ok", "● 运行中"
+        elif gw.get("state") == "unknown" and not gw.get("platforms"):
+            gw_cls, gw_text = "down", "● 未知"
+        else:
+            gw_cls, gw_text = "down", "● " + str(gw.get("state", "未知"))
+        gw_platforms = []
+        plats = gw.get("platforms", {})
+        if plats:
+            for name, p in plats.items():
+                pstate = p.get("state", "?") if isinstance(p, dict) else "?"
+                if isinstance(p, dict) and p.get("state") == "connected":
+                    ptext = f'{name} <span class="ok" style="font-size:11px">● 在线</span>'
+                else:
+                    err = p.get("error_message") or (p.get("error_code") or "") if isinstance(p, dict) else ""
+                    ptext = f'{name} <span class="down" style="font-size:11px">● {pstate}</span>'
+                gw_platforms.append(f'<div class="row"><span class="label">{ptext}</span></div>')
+        else:
+            gw_platforms.append('<div class="row"><span class="label" style="color:#999">未检测到平台</span></div>')
+
+        # 兜底 LLM 状态
+        llm = _llm_status()
+        if llm.get("ok"):
+            llm_cls, llm_text = "ok", "● 连接正常"
+        elif llm.get("configured"):
+            llm_cls, llm_text = "down", "● 连接失败"
+        else:
+            llm_cls, llm_text = "down", "○ 未配置"
+        llm_rows = []
+        llm_rows.append(f'<div class="row"><span class="label">状态</span><span class="val">{llm.get("msg", "")}</span></div>')
+        if llm.get("model"):
+            llm_rows.append(f'<div class="row"><span class="label">模型</span><span class="val">{llm["model"]}</span></div>')
+        if llm.get("models"):
+            llm_rows.append(f'<div class="row"><span class="label">可用模型</span><span class="val">{", ".join(llm["models"])}</span></div>')
+
         cfg = _load_config()
         html = PAGE.format(
             STATUS_CLS=status_cls,
@@ -269,6 +365,12 @@ class Handler(BaseHTTPRequestHandler):
             PLATFORM=platform,
             VERSION=version,
             CORE_PORT=CORE_PORT,
+            GW_CLS=gw_cls,
+            GW_TEXT=gw_text,
+            GW_PLATFORMS="\n".join(gw_platforms),
+            LLM_CLS=llm_cls,
+            LLM_TEXT=llm_text,
+            LLM_ROWS="\n".join(llm_rows),
             FORM_FIELDS=_form_fields(cfg),
             TS=time.strftime("%Y-%m-%d %H:%M:%S"),
         )
