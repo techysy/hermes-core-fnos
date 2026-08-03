@@ -17,7 +17,7 @@ mkdir -p "${DATA_DIR}"
 echo "[$(date '+%F %T')] install_callback start (user=$(id -un) uid=$(id -u))" >> "${LOG}"
 
 # 保存安装向导传入的配置 (wizard_ 前缀) 到 gateway.env
-# 字段: api_server_*, llm_model (默认模型名)
+# 字段: api_server_*, llm_model (默认模型名), llm_base_url (默认模型 Base URL)
 # 注意: 更新时(升级)也走 install_callback, 但向导为空. 为避免覆盖已有配置,
 # 仅当 gateway.env 不存在(首次安装) 或向导显式传值时才写入。
 if [ ! -f "${DATA_DIR}/gateway.env" ]; then
@@ -27,6 +27,7 @@ API_SERVER_HOST="${wizard_api_server_host:-0.0.0.0}"
 API_SERVER_PORT="${wizard_api_server_port:-8642}"
 API_SERVER_KEY="${wizard_api_server_key:-webui-gateway-key-2026}"
 LLM_MODEL="${wizard_llm_model:-}"
+LLM_BASE_URL="${wizard_llm_base_url:-}"
 EOF
     chmod 600 "${DATA_DIR}/gateway.env"
     echo "[$(date '+%F %T')] saved wizard config (first install)" >> "${LOG}"
@@ -37,6 +38,7 @@ API_SERVER_HOST="${wizard_api_server_host:-0.0.0.0}"
 API_SERVER_PORT="${wizard_api_server_port:-8642}"
 API_SERVER_KEY="${wizard_api_server_key:-webui-gateway-key-2026}"
 LLM_MODEL="${wizard_llm_model:-}"
+LLM_BASE_URL="${wizard_llm_base_url:-}"
 EOF
     chmod 600 "${DATA_DIR}/gateway.env"
     echo "[$(date '+%F %T')] saved wizard config (wizard had values)" >> "${LOG}"

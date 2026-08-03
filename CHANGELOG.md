@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.4.4 (2026-08-03)
+
+### 变更 / Changed
+- **默认模型通用结构** — 默认模型名 (LLM_MODEL) 和 base_url 都为空时，model 段保持通用结构（`model.default: default`），不强制具体模型/地址
+- **向导加默认模型 Base URL** — 安装向导默认模型步骤新增 Base URL 字段（默认 LongCat API），与默认模型名一起填
+
 ## 0.4.3 (2026-08-03)
 
 ### 变更 / Changed

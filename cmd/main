@@ -170,7 +170,18 @@ write_config() {
     # model.default = 安装向导填的默认模型名 (LLM_MODEL)
     # 供应商预设: 9Router 始终提供 (本地代理, 非强制默认); 其余按 API key 是否配置加入
     # 保留旧 config.yaml 中非内核管理的段落 (platforms 等消息网关配置), 避免覆盖丢失
-    DEFAULT_MODEL="${LLM_MODEL:-default}"
+    # model.default = 安装向导填的默认模型名 (LLM_MODEL) + base_url
+    # 若都为空则保持通用结构 (model.default: default), 不强制具体模型
+    # 供应商预设: 9Router 始终提供 (本地代理, 非强制默认); 其余按 API key 是否配置加入
+    # 保留旧 config.yaml 中非内核管理的段落 (platforms 等消息网关配置), 避免覆盖丢失
+    if [ -n "${LLM_MODEL:-}" ]; then
+        DEFAULT_MODEL="${LLM_MODEL}"
+        DEFAULT_BASE_URL="${LLM_BASE_URL:-}"
+    else
+        # 通用结构: 不指定具体模型/地址, 由 Hermes 处理
+        DEFAULT_MODEL="default"
+        DEFAULT_BASE_URL=""
+    fi
     # 默认 provider: 检测默认模型属于哪个已配置供应商
     DEFAULT_PROVIDER=""
     if [ -n "${ROUTER_API_KEY:-}" ] && [[ "${DEFAULT_MODEL}" == *"/"* ]]; then
@@ -181,6 +192,7 @@ write_config() {
 model:
   default: ${DEFAULT_MODEL}
   provider: ${DEFAULT_PROVIDER}
+  base_url: ${DEFAULT_BASE_URL}
 custom_providers:
   - name: 9Router Proxy
     base_url: http://127.0.0.1:20128/v1

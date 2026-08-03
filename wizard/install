@@ -32,7 +32,14 @@
         "field": "llm_model",
         "label": "默认模型名",
         "initValue": "LongCat-2.0",
-        "tip": "api_server 默认使用的模型。其余模型供应商可在应用内「供应商」页配置。"
+        "rules": [{"required": true, "message": "必填"}]
+      },
+      {
+        "type": "text",
+        "field": "llm_base_url",
+        "label": "默认模型 Base URL",
+        "initValue": "https://api.longcat.chat/openai",
+        "tip": "默认模型对应的 OpenAI 兼容 API 地址。其余模型供应商可在应用内「供应商」页配置。"
       }
     ]
   }
