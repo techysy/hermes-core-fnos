@@ -621,9 +621,9 @@ def _render_group_fields(cfg, grp_key):
 
 
 def _form_fields(cfg):
-    """配置面板: 内核/LLM/Dashboard 分组 (独立区块卡片)."""
+    """配置面板: 内核/Dashboard 分组 (LLM 配置走安装向导+模型供应商页, 不再显示)."""
     parts = []
-    for grp_key in ("core", "llm", "dash"):
+    for grp_key in ("core", "dash"):
         body = _render_group_fields(cfg, grp_key)
         if body:
             parts.append(body)
