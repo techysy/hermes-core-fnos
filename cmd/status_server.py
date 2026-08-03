@@ -295,7 +295,7 @@ PAGE = """<!DOCTYPE html>
   /* 聊天窗口 */
   .chat-card {{ display:flex; flex-direction:column; height:calc(100vh - 140px); min-height:400px; }}
   .chat-msgs {{ flex:1; overflow-y:auto; padding:10px; background:var(--input-bg); border-radius:8px; margin-bottom:10px; }}
-  .chat-msg {{ margin-bottom:10px; max-width:85%; padding:8px 12px; border-radius:10px; font-size:14px; line-height:1.5; word-break:break-word; white-space:pre-wrap; }}
+  .chat-msg {{ margin-bottom:10px; max-width:45%; min-width:120px; padding:8px 12px; border-radius:10px; font-size:14px; line-height:1.5; word-break:break-word; overflow-wrap:break-word; white-space:pre-wrap; }}
   .chat-msg.user {{ margin-left:auto; background:var(--accent); color:#fff; }}
   .chat-msg.assistant {{ background:var(--card); border:1px solid var(--border); }}
   .chat-msg .role {{ font-size:11px; color:var(--muted); margin-bottom:2px; }}
@@ -389,7 +389,7 @@ PAGE = """<!DOCTYPE html>
     </div>
     <div class="nav-section" data-i18n="nav-providers">模型供应商</div>
     <div class="nav-item" data-nav="providers" onclick="switchNav('providers')">
-      <span class="ico">🔌</span> <span data-i18n="nav-providers-title">模型供应商</span>
+      <span class="ico">🍟</span> <span data-i18n="nav-providers-title">供应商</span>
     </div>
   </div>
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -475,7 +475,7 @@ PAGE = """<!DOCTYPE html>
   <!-- 模型供应商面板 -->
   <div class="nav-panel" id="panel-providers" style="display:none">
   <div class="card">
-    <h2>🔌 <span data-i18n="nav-providers-title">模型供应商</span></h2>
+    <h2>🍟 <span data-i18n="nav-providers-title">供应商</span></h2>
     <p style="font-size:12px;color:var(--muted);margin:0 0 12px;" data-i18n="providers-hint">点击供应商卡片配置 API Key。默认模型为本机代理 (9Router)，其余预留待配置。</p>
     {PROVIDERS_GRID}
   </div>
@@ -489,7 +489,7 @@ PAGE = """<!DOCTYPE html>
 const HERMES_AUTH = {AUTH_TOKEN};
 const I18N = {{
   zh: {{
-    'nav-chat':'聊天','nav-status':'状态','nav-config':'配置','nav-providers':'模型供应商','nav-providers-title':'模型供应商','local-kernel':'本地内核',
+    'nav-chat':'聊天','nav-status':'状态','nav-config':'配置','nav-providers':'供应商','nav-providers-title':'供应商','local-kernel':'本地内核',
     'chat-placeholder':'输入消息，Enter 发送...','chat-hint':'通过本机 api_server (8642) 对话。发送即触发一次对话。',
     'providers-hint':'点击供应商卡片配置 API Key。默认模型为本机代理 (9Router)，其余预留待配置。',
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
@@ -502,7 +502,7 @@ const I18N = {{
     'running':'● 运行中','stopped':'● 已停止','healthy':'healthy','unconfigured':'○ 未配置'
   }},
   en: {{
-    'nav-chat':'Chat','nav-status':'Status','nav-config':'Config','nav-providers':'Providers','nav-providers-title':'Model Providers','local-kernel':'Local Kernel',
+    'nav-chat':'Chat','nav-status':'Status','nav-config':'Config','nav-providers':'Providers','nav-providers-title':'Providers','local-kernel':'Local Kernel',
     'chat-placeholder':'Type a message, Enter to send...','chat-hint':'Chat via local api_server (8642). Sending triggers one conversation.',
     'providers-hint':'Click a provider card to configure its API Key. Default model is local proxy (9Router); others are pending setup.',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
