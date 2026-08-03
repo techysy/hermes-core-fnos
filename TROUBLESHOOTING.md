@@ -4,6 +4,23 @@
 
 ---
 
+## 2026-08-03 (第四次迭代)
+
+### 状态页展示消息网关 + 兜底 LLM 状态
+
+**背景**：用户希望状态页能看消息网关（Feishu/Telegram/微信）和兜底 LLM 的连接状态，并确认重启内核会重启消息网关。
+
+**实现**：
+- **消息网关**：内核 `/health/detailed` 返回 `gateway_state` + `platforms`（各平台 state）。状态服务读取并展示。
+- **兜底 LLM**：读 gateway.env 的 `LLM_BASE_URL`，探测 `<base>/v1/models`（带 key），显示连接正常/失败/未配置 + 可用模型。
+- **重启提示**：状态页注明"重启内核会同时重启消息网关与 cron 调度"。
+
+**关键端点**：内核 `hermes gateway run` 承载消息平台 + cron + API server。`/health/detailed` 是查平台状态的可靠端点（返回 gateway_state + platforms dict）。
+
+**注意**：`hermes gateway run` 本身就会启动消息网关（配置了平台后）。"重启内核"即重启整个 gateway（含消息网关）。
+
+---
+
 ## 2026-08-03 (第三次迭代)
 
 ### 跨用户残留进程无法 kill (Operation not permitted)
