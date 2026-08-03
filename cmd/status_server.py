@@ -139,6 +139,30 @@ def _do_restart():
         return False, str(e)
 
 
+def _chat_proxy(messages):
+    """代理聊天请求到本机 api_server (8642) 的 /v1/chat/completions."""
+    if not messages:
+        return None, "no messages"
+    cfg = _load_config()
+    api_key = cfg.get("API_SERVER_KEY", "")
+    model = cfg.get("LLM_MODEL", "") or "default"
+    base = os.environ.get("CORE_HOST", "127.0.0.1")
+    port = os.environ.get("CORE_PORT", "8642")
+    url = f"http://{base}:{port}/v1/chat/completions"
+    body = json.dumps({"model": model, "messages": messages, "stream": False}).encode()
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    try:
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read().decode())
+            reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            return reply, None
+    except Exception as e:
+        return None, str(e)
+
+
 def _core_health():
     try:
         req = urllib.request.Request(f"http://{CORE_HOST}:{CORE_PORT}/health",
@@ -268,6 +292,18 @@ PAGE = """<!DOCTYPE html>
   .cfg-section-title {{ display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:var(--text); margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }}
   .cfg-section .hint {{ font-size:11px; color:var(--muted); margin-top:10px; }}
   .cfg-section input {{ margin-bottom:2px; }}
+  /* 聊天窗口 */
+  .chat-card {{ display:flex; flex-direction:column; height:calc(100vh - 140px); min-height:400px; }}
+  .chat-msgs {{ flex:1; overflow-y:auto; padding:10px; background:var(--input-bg); border-radius:8px; margin-bottom:10px; }}
+  .chat-msg {{ margin-bottom:10px; max-width:85%; padding:8px 12px; border-radius:10px; font-size:14px; line-height:1.5; word-break:break-word; white-space:pre-wrap; }}
+  .chat-msg.user {{ margin-left:auto; background:var(--accent); color:#fff; }}
+  .chat-msg.assistant {{ background:var(--card); border:1px solid var(--border); }}
+  .chat-msg .role {{ font-size:11px; color:var(--muted); margin-bottom:2px; }}
+  .chat-msg.error {{ background:var(--down-bg); color:var(--down-text); }}
+  .chat-input-row {{ display:flex; gap:8px; align-items:flex-end; }}
+  .chat-input {{ flex:1; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--input-bg); color:var(--text); font-size:14px; resize:vertical; }}
+  .chat-send {{ width:44px; height:44px; border-radius:50%; background:var(--accent); color:#fff; font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; }}
+  @media (max-width: 480px) {{ .chat-card {{ height:calc(100vh - 100px); }} }}
   /* 模型供应商卡片网格 (参考 9Router providers) */
   .providers-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }}
   .provider-card {{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .15s; position:relative; }}
@@ -342,7 +378,10 @@ PAGE = """<!DOCTYPE html>
         <div class="ver" data-i18n="local-kernel">本地内核</div>
       </div>
     </div>
-    <div class="nav-item active" data-nav="status" onclick="switchNav('status')">
+    <div class="nav-item active" data-nav="chat" onclick="switchNav('chat')">
+      <span class="ico">💬</span> <span data-i18n="nav-chat">聊天</span>
+    </div>
+    <div class="nav-item" data-nav="status" onclick="switchNav('status')">
       <span class="ico">📊</span> <span data-i18n="nav-status">状态</span>
     </div>
     <div class="nav-item" data-nav="config" onclick="switchNav('config')">
@@ -351,13 +390,6 @@ PAGE = """<!DOCTYPE html>
     <div class="nav-section" data-i18n="nav-providers">模型供应商</div>
     <div class="nav-item" data-nav="providers" onclick="switchNav('providers')">
       <span class="ico">🔌</span> <span data-i18n="nav-providers-title">模型供应商</span>
-    </div>
-    <div class="nav-section" data-i18n="nav-channels">消息渠道</div>
-    <div class="nav-item" data-nav="feishu" onclick="switchNav('feishu')">
-      <span class="ico">💬</span> <span data-i18n="nav-feishu">飞书</span>
-    </div>
-    <div class="nav-item" data-nav="wechat" onclick="switchNav('wechat')">
-      <span class="ico">💬</span> <span data-i18n="nav-wechat">微信</span>
     </div>
   </div>
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
@@ -375,8 +407,21 @@ PAGE = """<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- 聊天面板 -->
+  <div class="nav-panel" id="panel-chat">
+  <div class="card chat-card">
+    <h2>💬 <span data-i18n="nav-chat">聊天</span></h2>
+    <div id="chat-msgs" class="chat-msgs"></div>
+    <div class="chat-input-row">
+      <textarea id="chat-input" class="chat-input" rows="2" placeholder="" data-i18n="chat-placeholder"></textarea>
+      <button class="chat-send" onclick="sendChat()">➤</button>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:6px 0 0;" data-i18n="chat-hint">通过本机 api_server (8642) 对话。发送即触发一次对话。</p>
+  </div>
+  </div>
+
   <!-- 状态面板 -->
-  <div class="nav-panel" id="panel-status">
+  <div class="nav-panel" id="panel-status" style="display:none">
   <!-- 聚合状态网格: 内核 / 消息网关 / LLM / Dashboard (2列4卡, 适配小窗口) -->
   <div class="status-grid">
     <div class="status-card">
@@ -436,36 +481,6 @@ PAGE = """<!DOCTYPE html>
   </div>
   </div>
 
-  <!-- 飞书面板 -->
-  <div class="nav-panel" id="panel-feishu" style="display:none">
-  <div class="card">
-    <h2>💬 <span data-i18n="nav-feishu">飞书</span></h2>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;" data-i18n="feishu-hint">配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。</p>
-    <div id="msg" class="msg"></div>
-    <form id="cfgform-feishu">
-      {FORM_FIELDS_FEISHU}
-    </form>
-    <div class="btn-row">
-      <button class="primary" onclick="saveConfig('cfgform-feishu')" data-i18n="save-config">💾 保存配置</button>
-    </div>
-  </div>
-  </div>
-
-  <!-- 微信面板 -->
-  <div class="nav-panel" id="panel-wechat" style="display:none">
-  <div class="card">
-    <h2>💬 <span data-i18n="nav-wechat">微信</span></h2>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;" data-i18n="wechat-hint">配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。</p>
-    <div id="msg" class="msg"></div>
-    <form id="cfgform-wechat">
-      {FORM_FIELDS_WECHAT}
-    </form>
-    <div class="btn-row">
-      <button class="primary" onclick="saveConfig('cfgform-wechat')" data-i18n="save-config">💾 保存配置</button>
-    </div>
-  </div>
-  </div>
-
   <div class="meta">Hermes Core · 本地内核 · {TS}</div>
   </div>
   </div>
@@ -474,8 +489,8 @@ PAGE = """<!DOCTYPE html>
 const HERMES_AUTH = {AUTH_TOKEN};
 const I18N = {{
   zh: {{
-    'nav-status':'状态','nav-config':'配置','nav-channels':'消息渠道','nav-feishu':'飞书','nav-wechat':'微信','local-kernel':'本地内核',
-    'nav-providers':'模型供应商','nav-providers-title':'模型供应商',
+    'nav-chat':'聊天','nav-status':'状态','nav-config':'配置','nav-providers':'模型供应商','nav-providers-title':'模型供应商','local-kernel':'本地内核',
+    'chat-placeholder':'输入消息，Enter 发送...','chat-hint':'通过本机 api_server (8642) 对话。发送即触发一次对话。',
     'providers-hint':'点击供应商卡片配置 API Key。默认模型为本机代理 (9Router)，其余预留待配置。',
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
     'wechat-hint':'配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。',
@@ -487,8 +502,8 @@ const I18N = {{
     'running':'● 运行中','stopped':'● 已停止','healthy':'healthy','unconfigured':'○ 未配置'
   }},
   en: {{
-    'nav-status':'Status','nav-config':'Config','nav-channels':'Channels','nav-feishu':'Feishu','nav-wechat':'WeChat','local-kernel':'Local Kernel',
-    'nav-providers':'Providers','nav-providers-title':'Model Providers',
+    'nav-chat':'Chat','nav-status':'Status','nav-config':'Config','nav-providers':'Providers','nav-providers-title':'Model Providers','local-kernel':'Local Kernel',
+    'chat-placeholder':'Type a message, Enter to send...','chat-hint':'Chat via local api_server (8642). Sending triggers one conversation.',
     'providers-hint':'Click a provider card to configure its API Key. Default model is local proxy (9Router); others are pending setup.',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
     'wechat-hint':'Configure WeChat channel. Save and restart to apply. Token comes from WeChat channel.',
@@ -586,6 +601,39 @@ async function restartCore() {{
   if (r.ok) showMsg(I18N[currentLang]['restarting']);
   else showMsg(I18N[currentLang]['restart-fail'] + (r.error || ''), true);
 }}
+let chatHistory = [];
+function addChatMsg(role, text) {{
+  const box = document.getElementById('chat-msgs');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (role === 'user' ? 'user' : (role === 'error' ? 'error' : 'assistant'));
+  if (role !== 'user') {{
+    const r = document.createElement('div');
+    r.className = 'role';
+    r.textContent = role === 'assistant' ? 'Hermes' : '错误';
+    div.appendChild(r);
+  }}
+  div.appendChild(document.createTextNode(text));
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}}
+async function sendChat() {{
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addChatMsg('user', text);
+  chatHistory.push({{ role: 'user', content: text }});
+  const r = await api('/api/chat', 'POST', {{ messages: chatHistory }});
+  if (r.ok && r.reply) {{
+    addChatMsg('assistant', r.reply);
+    chatHistory.push({{ role: 'assistant', content: r.reply }});
+  }} else {{
+    addChatMsg('error', r.error || '对话失败');
+  }}
+}}
+document.getElementById('chat-input').addEventListener('keydown', (e) => {{
+  if (e.key === 'Enter' && !e.shiftKey) {{ e.preventDefault(); sendChat(); }}
+}});
 // 初始化
 document.body.dataset.theme = currentTheme;
 document.getElementById('btn-theme').textContent = currentTheme === 'light' ? '🌙' : '☀️';
@@ -712,6 +760,21 @@ class Handler(BaseHTTPRequestHandler):
                 return
             ok, err = _do_restart()
             self._json({"ok": ok, "error": err} if not ok else {"ok": True})
+        elif self.path == "/api/chat":
+            # 聊天: 代理到本机 api_server (8642) 的 /v1/chat/completions
+            if not self._check_auth():
+                return
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                data = json.loads(self.rfile.read(length).decode()) if length else {}
+            except Exception:
+                data = {}
+            messages = data.get("messages", [])
+            reply, err = _chat_proxy(messages)
+            if reply is not None:
+                self._json({"ok": True, "reply": reply})
+            else:
+                self._json({"ok": False, "error": err or "chat failed"})
         else:
             self._json({"ok": False, "error": "not found"}, 404)
 
@@ -811,8 +874,6 @@ class Handler(BaseHTTPRequestHandler):
             DASH_USER=dash_user,
             DASH_PORT=dash_port,
             FORM_FIELDS=_form_fields(cfg),
-            FORM_FIELDS_FEISHU=_form_fields_feishu(cfg),
-            FORM_FIELDS_WECHAT=_form_fields_wechat(cfg),
             PROVIDERS_GRID=_render_providers_grid(cfg),
             AUTH_TOKEN=json.dumps(API_KEY),   # 注入鉴权 token 到前端 JS
             TS=time.strftime("%Y-%m-%d %H:%M:%S"),
