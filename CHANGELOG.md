@@ -3,7 +3,8 @@
 ## 0.4.5 (2026-08-04)
 
 ### 变更 / Changed
-- **跟进 Hermes Agent 内核 v0.20.0** — 安装时 `pip install hermes-agent` 拉取最新内核（v0.20.0 Herald Release：流式语音、A2A、webhooks、桌面应用平台化等）。config.yaml 兼容验证通过（model/custom_providers/api_server/dashboard 结构不变）
+- **重建发版** — 同步最新应用代码（状态页、配置面板、README 规范化、动态 PyPI 版本徽章）
+- **内核版本说明** — 应用通过 `pip install hermes-agent` 在线安装内核，安装时自动拉取 PyPI 最新版（当前 **v0.19.0**）。上游 Hermes Agent v0.20.0 已在 GitHub 发布（v2026.8.3）但 **PyPI 尚未同步**；待 PyPI 发布 v0.20.0 后，App Center 更新应用即可自动升级内核（`upgrade_callback` 执行 `pip install --upgrade`），无需卸载重装
 
 ## 0.4.4 (2026-08-03)
 
