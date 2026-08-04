@@ -16,12 +16,14 @@ Hermes Agent 本地内核的飞牛 fnOS 应用包 — 独立运行的 Gateway AP
 
 ```
 fnOS
-┌────────────────────────────────┐
-│ Hermes Core  (:8642)           │
-│   └─ hermes gateway run        │
-│       └─ 本地 venv hermes-agent │
-│           └─ LLM (9Router/MiMo) │
-└────────────────────────────────┘
+├── Hermes Core  (:8642)        ← hermes gateway run (本地 venv)
+│   └─ LLM 连接                 ← 9Router / DeepSeek / MiMo / Custom LLM
+├── Status Server (:8648)       ← status_server.py (纯 stdlib, 零依赖)
+│   ├─💬 聊天                  ← 流式 SSE 代理 → :8642
+│   ├─ 📊 状态                  ← 内核/消息网关/LLM/Dashboard 状态
+│   ├─ ⚙️ 配置                  ← gateway.env 配置管理 + 一键重启
+│   └─ 🍟 模型供应商            ← 9Router/DeepSeek/MiMo 卡片 + Token 管理
+└── Dashboard (:9119)           ← Hermes 原生 Web 管理界面 (可选, DASHBOARD_ENABLED)
 ```
 
 配合 [Hermes WebUI](https://github.com/techysy/hermes-webui-fnos) 前端包，改连 `http://127.0.0.1:8642` 即可完全自闭环。
@@ -119,6 +121,7 @@ curl -b cookie.txt http://<NAS>:9119/api/sessions
 | 服务 | 端口 | 说明 |
 |------|------|------|
 | Gateway API | 8642 | OpenAI 兼容 API |
+| Status Server | 8648 | 状态页 + 配置 + 聊天代理 |
 | Dashboard | 9119 | Hermes Web 管理界面 |
 
 ## 兜底 LLM 逻辑
