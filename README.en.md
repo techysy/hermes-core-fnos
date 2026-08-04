@@ -6,6 +6,7 @@ A fnOS app that runs the Hermes Agent kernel locally — an independent Gateway 
 [![Downloads](https://img.shields.io/github/downloads/techysy/hermes-core-fnos/total?label=Downloads&color=green)](https://github.com/techysy/hermes-core-fnos/releases)
 [![fnOS](https://img.shields.io/badge/fnOS-1.1.31xx-blue)](https://developer.fnnas.com/docs/guide)
 [![Hermes Agent](https://img.shields.io/pypi/v/hermes-agent.svg)](https://pypi.org/project/hermes-agent/)
+[![Upstream](https://img.shields.io/github/v/release/NousResearch/hermes-agent.svg?label=Upstream&color=purple)](https://github.com/NousResearch/hermes-agent/releases)
 
 - [中文 README](./README.md)
 
