@@ -5,7 +5,7 @@ Hermes Agent 本地内核的飞牛 fnOS 应用包 — 独立运行的 Gateway AP
 [![Release](https://img.shields.io/github/v/release/techysy/hermes-core-fnos?label=Release&color=blue)](https://github.com/techysy/hermes-core-fnos/releases)
 [![Downloads](https://img.shields.io/github/downloads/techysy/hermes-core-fnos/total?label=Downloads&color=green)](https://github.com/techysy/hermes-core-fnos/releases)
 [![fnOS](https://img.shields.io/badge/fnOS-1.1.31xx-blue)](https://developer.fnnas.com/docs/guide)
-[![Hermes Agent](https://img.shields.io/pypi/v/hermes-agent?label=Hermes%20Agent&color=purple)](https://pypi.org/project/hermes-agent/)
+[![Hermes Agent](https://img.shields.io/pypi/v/hermes-agent.svg)](https://pypi.org/project/hermes-agent/)
 
 - [English README](./README.en.md)
 
