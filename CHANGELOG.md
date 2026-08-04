@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.4.5 (2026-08-04)
+
+### 变更 / Changed
+- **跟进 Hermes Agent 内核 v0.20.0** — 安装时 `pip install hermes-agent` 拉取最新内核（v0.20.0 Herald Release：流式语音、A2A、webhooks、桌面应用平台化等）。config.yaml 兼容验证通过（model/custom_providers/api_server/dashboard 结构不变）
+
 ## 0.4.4 (2026-08-03)
 
 ### 变更 / Changed
