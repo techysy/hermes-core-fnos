@@ -4,21 +4,21 @@
     "items": [
       {
         "type": "text",
-        "field": "api_server_host",
+        "field": "wizard_api_server_host",
         "label": "监听地址",
         "initValue": "0.0.0.0",
         "rules": [{"required": true, "message": "必填"}]
       },
       {
         "type": "text",
-        "field": "api_server_port",
+        "field": "wizard_api_server_port",
         "label": "API 端口",
         "initValue": "8642",
         "rules": [{"required": true, "message": "必填"}]
       },
       {
         "type": "text",
-        "field": "api_server_key",
+        "field": "wizard_api_server_key",
         "label": "API Key",
         "initValue": "webui-gateway-key-2026"
       }
@@ -28,18 +28,41 @@
     "stepTitle": "默认模型",
     "items": [
       {
-        "type": "text",
-        "field": "llm_model",
-        "label": "默认模型名",
-        "initValue": "LongCat-2.0",
-        "rules": [{"required": true, "message": "必填"}]
+        "type": "select",
+        "field": "wizard_llm_provider",
+        "label": "模型供应商",
+        "initValue": "9router",
+        "options": [
+          {"label": "9Router（本机代理）", "value": "9router"},
+          {"label": "DeepSeek", "value": "deepseek"},
+          {"label": "Xiaomi MiMo", "value": "mimo"},
+          {"label": "自定义 URL", "value": "custom"}
+        ]
+      },
+      {
+        "type": "password",
+        "field": "wizard_llm_api_key",
+        "label": "API Token",
+        "initValue": "",
+        "tip": "所选供应商的 API Key。9Router 本机代理可留空或填本机 key。"
       },
       {
         "type": "text",
-        "field": "llm_base_url",
-        "label": "默认模型 Base URL",
-        "initValue": "https://api.longcat.chat/openai",
-        "tip": "默认模型对应的 OpenAI 兼容 API 地址。其余模型供应商可在应用内「供应商」页配置。"
+        "field": "wizard_llm_base_url",
+        "label": "Base URL（选自定义时必填）",
+        "initValue": "",
+        "tip": "仅当供应商选择「自定义 URL」时填写 OpenAI 兼容 API 地址，如 https://api.example.com/v1。"
+      },
+      {
+        "type": "text",
+        "field": "wizard_llm_model",
+        "label": "默认模型名（可选）",
+        "initValue": "",
+        "tip": "留空则使用供应商默认模型，安装后可在应用内「供应商」页调整。"
+      },
+      {
+        "type": "tips",
+        "helpText": "其余模型供应商可在应用内「供应商」页补充配置。"
       }
     ]
   }

@@ -17,31 +17,64 @@ mkdir -p "${DATA_DIR}"
 echo "[$(date '+%F %T')] install_callback start (user=$(id -un) uid=$(id -u))" >> "${LOG}"
 
 # 保存安装向导传入的配置 (wizard_ 前缀) 到 gateway.env
-# 字段: api_server_*, llm_model (默认模型名), llm_base_url (默认模型 Base URL)
+# 字段: api_server_*, llm_provider (模型供应商 select), llm_api_key (供应商 token),
+#       llm_base_url (自定义时必填), llm_model (默认模型名, 可选)
+# 供应商→环境变量/默认 base_url/默认模型 映射 (与 status_server.py MODEL_PROVIDERS 保持一致)
+WIZ_PROVIDER="${wizard_llm_provider:-9router}"
+case "${WIZ_PROVIDER}" in
+  deepseek)
+    WIZ_KEY_ENV="DEEPSEEK_API_KEY"
+    WIZ_BASE_URL="https://api.deepseek.com/v1"
+    WIZ_DEF_MODEL="deepseek-chat"
+    ;;
+  mimo)
+    WIZ_KEY_ENV="XIAOMI_API_KEY"
+    WIZ_BASE_URL="https://api.xiaomimimo.com/v1"
+    WIZ_DEF_MODEL="mimo-v2.5"
+    ;;
+  custom)
+    # 自定义 OpenAI 兼容 API: 用向导填的 base_url, token 走通用 LLM_API_KEY
+    WIZ_KEY_ENV="LLM_API_KEY"
+    WIZ_BASE_URL="${wizard_llm_base_url:-}"
+    WIZ_DEF_MODEL=""
+    ;;
+  *)
+    # 默认 9router (本机代理)
+    WIZ_PROVIDER="9router"
+    WIZ_KEY_ENV="ROUTER_API_KEY"
+    WIZ_BASE_URL="http://127.0.0.1:20128/v1"
+    WIZ_DEF_MODEL=""
+    ;;
+esac
+WIZ_MODEL="${wizard_llm_model:-${WIZ_DEF_MODEL}}"
+WIZ_API_KEY="${wizard_llm_api_key:-}"
+
 # 注意: 更新时(升级)也走 install_callback, 但向导为空. 为避免覆盖已有配置,
-# 仅当 gateway.env 不存在(首次安装) 或向导显式传值时才写入。
+# 仅当 gateway.env 不存在(首次安装) 或向导显式传了关键配置时才写入。
 if [ ! -f "${DATA_DIR}/gateway.env" ]; then
-    # 首次安装: 写入向导配置 (允许空值)
+    # 首次安装: 写入向导配置
     cat > "${DATA_DIR}/gateway.env" <<EOF
 API_SERVER_HOST="${wizard_api_server_host:-0.0.0.0}"
 API_SERVER_PORT="${wizard_api_server_port:-8642}"
 API_SERVER_KEY="${wizard_api_server_key:-webui-gateway-key-2026}"
-LLM_MODEL="${wizard_llm_model:-}"
-LLM_BASE_URL="${wizard_llm_base_url:-}"
+LLM_MODEL="${WIZ_MODEL}"
+LLM_BASE_URL="${WIZ_BASE_URL}"
+${WIZ_KEY_ENV}="${WIZ_API_KEY}"
 EOF
     chmod 600 "${DATA_DIR}/gateway.env"
-    echo "[$(date '+%F %T')] saved wizard config (first install)" >> "${LOG}"
-elif [ -n "${wizard_api_server_key:-}${wizard_llm_model:-}" ]; then
-    # 更新场景: 仅当向导显式传了关键配置才更新, 避免清空已有配置
+    echo "[$(date '+%F %T')] saved wizard config (first install, provider=${WIZ_PROVIDER})" >> "${LOG}"
+elif [ -n "${wizard_llm_provider:-}${wizard_llm_api_key:-}${wizard_llm_base_url:-}${wizard_api_server_key:-}" ]; then
+    # 更新场景: 向导显式传了供应商/token/内核 key 才更新, 避免清空已有配置
     cat > "${DATA_DIR}/gateway.env" <<EOF
 API_SERVER_HOST="${wizard_api_server_host:-0.0.0.0}"
 API_SERVER_PORT="${wizard_api_server_port:-8642}"
 API_SERVER_KEY="${wizard_api_server_key:-webui-gateway-key-2026}"
-LLM_MODEL="${wizard_llm_model:-}"
-LLM_BASE_URL="${wizard_llm_base_url:-}"
+LLM_MODEL="${WIZ_MODEL}"
+LLM_BASE_URL="${WIZ_BASE_URL}"
+${WIZ_KEY_ENV}="${WIZ_API_KEY}"
 EOF
     chmod 600 "${DATA_DIR}/gateway.env"
-    echo "[$(date '+%F %T')] saved wizard config (wizard had values)" >> "${LOG}"
+    echo "[$(date '+%F %T')] saved wizard config (wizard had values, provider=${WIZ_PROVIDER})" >> "${LOG}"
 else
     echo "[$(date '+%F %T')] upgrade: wizard empty, preserving existing gateway.env" >> "${LOG}"
 fi
