@@ -33,11 +33,14 @@ DASHBOARD_LOG="${DATA_DIR}/dashboard.log"
 DASHBOARD_USER="${DASHBOARD_USER:-admin}"
 DASHBOARD_PASSWORD="${DASHBOARD_PASSWORD:-}"
 # 用 cmd/main 自身所在目录定位 status_server.py (同一目录), 兼容 fnOS 各种 TRIM_APPDEST
+# 优先级: CMD_DIR(与 main 同目录) > APP_DIR/cmd > APP_DIR/target/cmd
+# ⚠️ 绝不用 DATA_DIR 里的 status_server.py (运行数据目录可能残留旧副本, 会覆盖新装的 fpk 代码,
+#    导致升级后运行旧版本) — 2026-08-04 已踩坑: /vol4/@appdata/HermesCore/status_server.py 残留,
+#    新版本号修复一直不生效, 根因就是这里被旧副本抢占。
 CMD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATUS_SRC="${CMD_DIR}/status_server.py"
 [ -f "${APP_DIR}/cmd/status_server.py" ] && STATUS_SRC="${APP_DIR}/cmd/status_server.py"
 [ -f "${APP_DIR}/target/cmd/status_server.py" ] && STATUS_SRC="${APP_DIR}/target/cmd/status_server.py"
-[ -f "${DATA_DIR}/status_server.py" ] && STATUS_SRC="${DATA_DIR}/status_server.py"
 
 log() { echo "[$(date '+%F %T')] $*" >> "${LOG}"; }
 

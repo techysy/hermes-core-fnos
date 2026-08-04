@@ -22,6 +22,34 @@ BIND_HOST = os.environ.get("STATUS_HOST", "0.0.0.0")
 CONFIG_FILE = os.environ.get("CORE_CONFIG", "")
 CMD_MAIN = os.environ.get("CORE_CMD", "")
 
+# 状态页 UI 版本 — 动态从已安装 manifest 读取 (替代硬编码, 升级即更新)
+# 读不到时回退为空 (footer 不显示版本号)
+def _app_version():
+    """从已安装的 manifest 动态读取 HermesCore 应用版本.
+    返回如 '0.4.6', 读不到时返回 '' (footer 不显示版本号).
+    """
+    candidates = []
+    if CMD_MAIN:
+        # CMD_MAIN 指向 <app_dir>/cmd/main → manifest 在上级目录
+        candidates.append(os.path.join(os.path.dirname(os.path.dirname(CMD_MAIN)), "manifest"))
+    candidates += [
+        "/var/apps/HermesCore/manifest",
+        "/vol4/@appcenter/HermesCore/manifest",
+    ]
+    for path in candidates:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("version") and "=" in line:
+                        return line.split("=", 1)[1].strip()
+        except (OSError, IOError):
+            continue
+    return ""
+
+
+STATUS_VER = _app_version()
+
 # 可配置字段: (gateway.env key, 表单 label, 是否敏感, 分组)
 # 分组: core=内核 / llm=LLM连接 / dash=Dashboard / feishu=飞书 / wechat=微信
 CONFIG_FIELDS = [
@@ -31,9 +59,9 @@ CONFIG_FIELDS = [
     ("ROUTER_API_KEY", "9Router API Key", True, "llm"),
     ("DEEPSEEK_API_KEY", "DeepSeek API Key", True, "llm"),
     ("XIAOMI_API_KEY", "Xiaomi MiMo API Key", True, "llm"),
-    ("LLM_BASE_URL", "兜底 LLM Base URL", False, "llm"),
-    ("LLM_API_KEY", "兜底 LLM Token", True, "llm"),
-    ("LLM_MODEL", "兜底模型名", False, "llm"),
+    ("LLM_BASE_URL", "默认 LLM Base URL", False, "llm"),
+    ("LLM_API_KEY", "默认 LLM Token", True, "llm"),
+    ("LLM_MODEL", "默认模型名", False, "llm"),
     ("DASHBOARD_ENABLED", "Dashboard 开关(true/false)", False, "dash"),
     ("DASHBOARD_USER", "Dashboard 用户名", False, "dash"),
     ("DASHBOARD_PASSWORD", "Dashboard 密码", True, "dash"),
@@ -59,13 +87,11 @@ CONFIG_GROUPS = {
 # bg: 图标背景色, desc: 描述
 MODEL_PROVIDERS = [
     {"key": "9router", "name": "9Router", "ico": "🔧", "env": "ROUTER_API_KEY",
-     "default": False, "local": True, "bg": "#2f6fed", "desc": "本地代理 (本机 :20128)"},
+     "default": True, "local": True, "bg": "#2f6fed", "desc": "本地代理 (本机 :20128)"},
     {"key": "deepseek", "name": "DeepSeek", "ico": "🐋", "env": "DEEPSEEK_API_KEY",
      "default": False, "local": False, "bg": "#4d6bfe", "desc": "DeepSeek API"},
     {"key": "mimo", "name": "Xiaomi MiMo", "ico": "📱", "env": "XIAOMI_API_KEY",
      "default": False, "local": False, "bg": "#ff6900", "desc": "Xiaomi MiMo API"},
-    {"key": "longcat", "name": "LongCat", "ico": "🐱", "env": "LLM_API_KEY",
-     "default": False, "local": False, "bg": "#8b5cf6", "desc": "LongCat API"},
 ]
 
 # 供应商 base_url (用于生成 config.yaml custom_providers)
@@ -73,7 +99,6 @@ MODEL_PROVIDER_URLS = {
     "9router": "http://127.0.0.1:20128/v1",
     "deepseek": "https://api.deepseek.com/v1",
     "mimo": "https://api.xiaomimimo.com/v1",
-    "longcat": "https://api.longcat.chat/openai",
 }
 
 
@@ -109,6 +134,10 @@ def _save_config(data):
     try:
         # 读当前值, 未提交的字段保留原值
         current = _load_config()
+        # Dashboard 联动: 配置了用户名/密码则自动启用 (无需单独开开关)
+        if data.get("DASHBOARD_USER", "").strip() or data.get("DASHBOARD_PASSWORD", "").strip():
+            data = dict(data)
+            data["DASHBOARD_ENABLED"] = "true"
         with open(CONFIG_FILE, "w") as f:
             for key, _, _sens, _grp in CONFIG_FIELDS:
                 if key in data:
@@ -139,9 +168,13 @@ def _do_restart():
         return False, str(e)
 
 
-def _chat_proxy(messages):
-    """代理聊天请求到本机 api_server (8642) 的 /v1/chat/completions."""
+def _chat_proxy(messages, stream=False):
+    """代理聊天请求到本机 api_server (8642) 的 /v1/chat/completions.
+    stream=True 时返回生成器 (逐块 yield 文本); 否则返回完整 reply.
+    """
     if not messages:
+        if stream:
+            return iter([]), None
         return None, "no messages"
     cfg = _load_config()
     api_key = cfg.get("API_SERVER_KEY", "")
@@ -149,18 +182,51 @@ def _chat_proxy(messages):
     base = os.environ.get("CORE_HOST", "127.0.0.1")
     port = os.environ.get("CORE_PORT", "8642")
     url = f"http://{base}:{port}/v1/chat/completions"
-    body = json.dumps({"model": model, "messages": messages, "stream": False}).encode()
+    body = json.dumps({"model": model, "messages": messages, "stream": stream}).encode()
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     try:
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        resp = urllib.request.urlopen(req, timeout=300)
+    except Exception as e:
+        if stream:
+            return iter([]), f"连接失败: {e}"
+        return None, str(e)
+
+    if not stream:
+        try:
             data = json.loads(resp.read().decode())
             reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             return reply, None
-    except Exception as e:
-        return None, str(e)
+        except Exception as e:
+            return None, f"解析失败: {e}"
+
+    # 流式: 生成器逐行解析 SSE, yield 文本增量
+    captured_model = [""]
+
+    def gen():
+        try:
+            for raw in resp:
+                line = raw.decode("utf-8", "ignore").strip()
+                if not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(payload)
+                    if not captured_model[0]:
+                        captured_model[0] = chunk.get("model", "") or model
+                    delta = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    if delta:
+                        yield delta
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    return gen(), None, captured_model
 
 
 def _core_health():
@@ -216,14 +282,14 @@ def _dashboard_status():
 
 
 def _llm_status():
-    """探测兜底 LLM API 连接状态 (LLM_BASE_URL/v1/models)."""
+    """探测默认 LLM API 连接状态 (LLM_BASE_URL/v1/models)."""
     cfg = _load_config()
     base = cfg.get("LLM_BASE_URL", "")
     key = cfg.get("LLM_API_KEY", "")
     model = cfg.get("LLM_MODEL", "")
     if not base:
         # 未配置兜底, 显示为"未配置" (用 9Router 或无)
-        return {"configured": False, "ok": False, "msg": "未配置兜底 LLM（默认使用 9Router）"}
+        return {"configured": False, "ok": False, "msg": "未配置默认 LLM（默认使用 9Router）"}
     url = base.rstrip("/") + "/v1/models"
     headers = {"Authorization": f"Bearer {key}"} if key else {}
     try:
@@ -292,17 +358,39 @@ PAGE = """<!DOCTYPE html>
   .cfg-section-title {{ display:flex; align-items:center; gap:8px; font-size:14px; font-weight:700; color:var(--text); margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }}
   .cfg-section .hint {{ font-size:11px; color:var(--muted); margin-top:10px; }}
   .cfg-section input {{ margin-bottom:2px; }}
+  /* 配置字段：内核监听地址+端口 一排 */
+  .field-row {{ display:flex; gap:12px; }}
+  .field-col {{ flex:1; min-width:0; }}
+  .field-col label {{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }}
+  .field-col input {{ width:100%; }}
+  /* Dashboard 开关 (switch) */
+  .switch-wrap {{ display:flex; align-items:center; gap:10px; margin-bottom:2px; }}
+  .switch {{ position:relative; width:48px; height:26px; border-radius:13px; background:var(--border); border:none; cursor:pointer; transition:background .2s; padding:0; }}
+  .switch .knob {{ position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }}
+  .switch.on {{ background:var(--accent); }}
+  .switch.on .knob {{ left:25px; }}
+  .switch-text {{ font-size:13px; color:var(--text); }}
+  /* 默认模型卡片 */
+  .dm-current {{ font-size:13px; color:var(--text); background:var(--input-bg); border:1px solid var(--border); border-radius:8px; padding:8px 10px; margin-bottom:10px; word-break:break-all; }}
+  .dm-input {{ width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--input-bg); color:var(--text); font-size:13px; box-sizing:border-box; }}
+  select.dm-input {{ cursor:pointer; }}
   /* 聊天窗口 */
   .chat-card {{ display:flex; flex-direction:column; height:calc(100vh - 140px); min-height:400px; }}
   .chat-msgs {{ flex:1; overflow-y:auto; padding:10px; background:var(--input-bg); border-radius:8px; margin-bottom:10px; }}
-  .chat-msg {{ margin-bottom:10px; max-width:45%; min-width:120px; padding:8px 12px; border-radius:10px; font-size:14px; line-height:1.5; word-break:break-word; overflow-wrap:break-word; white-space:pre-wrap; }}
-  .chat-msg.user {{ margin-left:auto; background:var(--accent); color:#fff; }}
-  .chat-msg.assistant {{ background:var(--card); border:1px solid var(--border); }}
+  .chat-msg {{ margin-bottom:8px; max-width:70%; width:fit-content; min-width:40px; padding:8px 12px; font-size:14px; line-height:1.5; word-break:break-word; overflow-wrap:break-word; white-space:pre-wrap; }}
+  /* 微信风格: 自己(右,绿) / 对方(左,白) */
+  .chat-msg.user {{ margin-left:auto; background:#95ec69; color:#000; border-top-right-radius:4px; border-top-left-radius:12px; border-bottom-left-radius:12px; border-bottom-right-radius:12px; }}
+  .chat-msg.assistant {{ margin-right:auto; background:var(--card); color:var(--text); border:1px solid var(--border); border-top-left-radius:4px; border-top-right-radius:12px; border-bottom-left-radius:12px; border-bottom-right-radius:12px; }}
+  .chat-msg.error {{ margin-right:auto; background:var(--down-bg); color:var(--down-text); border-top-left-radius:4px; border-top-right-radius:12px; border-bottom-left-radius:12px; border-bottom-right-radius:12px; }}
   .chat-msg .role {{ font-size:11px; color:var(--muted); margin-bottom:2px; }}
-  .chat-msg.error {{ background:var(--down-bg); color:var(--down-text); }}
+  /* 消息底部元信息 (耗时 · 模型) — 小号灰色, 与正文隔断 */
+  .msg-meta {{ font-size:11px; color:var(--muted); margin-top:6px; padding-top:5px; border-top:1px solid var(--border); opacity:.75; white-space:nowrap; }}
   .chat-input-row {{ display:flex; gap:8px; align-items:flex-end; }}
   .chat-input {{ flex:1; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--input-bg); color:var(--text); font-size:14px; resize:vertical; }}
-  .chat-send {{ width:44px; height:44px; border-radius:50%; background:var(--accent); color:#fff; font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; }}
+  .chat-send {{ width:44px; height:44px; border-radius:50%; background:#95ec69; color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer; border:none; transition:opacity .15s; }}
+  .chat-send:hover {{ opacity:.85; }}
+  .chat-send:active {{ opacity:.7; }}
+  .chat-send svg {{ width:22px; height:22px; }}
   @media (max-width: 480px) {{ .chat-card {{ height:calc(100vh - 100px); }} }}
   /* 模型供应商卡片网格 (参考 9Router providers) */
   .providers-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }}
@@ -316,11 +404,12 @@ PAGE = """<!DOCTYPE html>
   .provider-card .p-badge {{ position:absolute; top:10px; right:10px; font-size:11px; padding:2px 8px; border-radius:10px; background:var(--accent); color:#fff; }}
   .provider-card .p-desc {{ font-size:11px; color:var(--muted); margin-top:6px; }}
   /* 卡片内联配置区 (响应式) */
-  .p-edit {{ margin-top:12px; padding:12px; border-top:1px solid var(--border); }}
-  .p-edit-label {{ font-size:12px; color:var(--muted); margin-bottom:8px; }}
-  .p-edit-input {{ width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--input-bg); color:var(--text); font-size:14px; box-sizing:border-box; margin-bottom:8px; }}
+  /* 卡片内联配置区 — 绝对定位覆盖在原卡片容器上, 不改卡片高度 (网格不被撑大) */
+  .p-edit {{ position:absolute; top:0; left:0; right:0; bottom:0; z-index:5; background:var(--card); border-radius:12px; padding:12px; display:flex; flex-direction:column; justify-content:center; box-shadow:0 2px 12px var(--shadow); }}
+  .p-edit-label {{ font-size:11px; color:var(--muted); margin-bottom:6px; }}
+  .p-edit-input {{ width:100%; padding:7px 9px; border:1px solid var(--border); border-radius:8px; background:var(--input-bg); color:var(--text); font-size:13px; box-sizing:border-box; margin-bottom:8px; }}
   .p-edit-btns {{ display:flex; gap:8px; }}
-  .p-edit-btns button {{ flex:1; padding:8px 0; border:none; border-radius:8px; font-size:13px; cursor:pointer; margin-top:0; }}
+  .p-edit-btns button {{ flex:1; padding:7px 0; border:none; border-radius:8px; font-size:12px; cursor:pointer; }}
   .p-edit-save {{ background:var(--accent); color:#fff; }}
   .p-edit-cancel {{ background:var(--card); color:var(--text); border:1px solid var(--border) !important; }}
   @media (max-width: 600px) {{ .providers-grid {{ grid-template-columns:1fr 1fr; }} }}
@@ -407,7 +496,6 @@ PAGE = """<!DOCTYPE html>
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:10px;">
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
-      <h1>🔧 Hermes Core</h1>
     </div>
     <div class="topbar-actions">
       <button class="icon-btn" onclick="toggleLang()" id="btn-lang">🌐 EN</button>
@@ -421,8 +509,8 @@ PAGE = """<!DOCTYPE html>
     <h2>💬 <span data-i18n="nav-chat">聊天</span></h2>
     <div id="chat-msgs" class="chat-msgs"></div>
     <div class="chat-input-row">
-      <textarea id="chat-input" class="chat-input" rows="2" placeholder="" data-i18n="chat-placeholder"></textarea>
-      <button class="chat-send" onclick="sendChat()">➤</button>
+      <textarea id="chat-input" class="chat-input" rows="2" placeholder="" data-i18n="chat-placeholder" enterkeyhint="send"></textarea>
+      <button class="chat-send" onclick="sendChat()" aria-label="发送">↑</button>
     </div>
     <p style="font-size:11px;color:var(--muted);margin:6px 0 0;" data-i18n="chat-hint">通过本机 api_server (8642) 对话。发送即触发一次对话。</p>
   </div>
@@ -447,7 +535,7 @@ PAGE = """<!DOCTYPE html>
       <div class="mini">{GW_PLATFORMS_MIN}</div>
     </div>
     <div class="status-card">
-      <h3>🧠 <span data-i18n="fallback-llm">兜底 LLM</span> <span class="status {LLM_CLS}">{LLM_TEXT}</span></h3>
+      <h3>🧠 <span data-i18n="fallback-llm">默认 LLM</span> <span class="status {LLM_CLS}">{LLM_TEXT}</span></h3>
       <div class="mini">{LLM_ROWS_MIN}</div>
     </div>
     <div class="status-card">
@@ -484,17 +572,19 @@ PAGE = """<!DOCTYPE html>
   <div class="nav-panel" id="panel-providers" style="display:none">
   <div class="card">
     <h2>🍟 <span data-i18n="nav-providers-title">供应商</span></h2>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 12px;" data-i18n="providers-hint">点击供应商卡片配置 API Key。默认模型为本机代理 (9Router)，其余预留待配置。</p>
+    {DEFAULT_MODEL_HTML}
+    <p style="font-size:12px;color:var(--muted);margin:12px 0 12px;" data-i18n="providers-hint">点击供应商卡片配置 API Key。默认模型由安装向导设置，9Router 为本地代理（非强制默认）。</p>
     {PROVIDERS_GRID}
   </div>
   </div>
 
-  <div class="meta">Hermes Core · 本地内核 · {TS}</div>
+  <div class="meta">Hermes Core <b>v{STATUS_VER}</b> · 本地内核 · {TS}</div>
   </div>
   </div>
 
 <script>
 const HERMES_AUTH = {AUTH_TOKEN};
+const LLM_MODEL_NAME = {LLM_MODEL_JSON};
 const I18N = {{
   zh: {{
     'nav-chat':'聊天','nav-status':'状态','nav-config':'配置','nav-providers':'供应商','nav-providers-title':'供应商','local-kernel':'本地内核',
@@ -503,7 +593,7 @@ const I18N = {{
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
     'wechat-hint':'配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。',
     'core-status':'内核状态','state':'状态','platform':'平台',
-    'version':'版本','core-port':'内核端口','api-addr':'API 地址','gateway':'消息网关','fallback-llm':'兜底 LLM',
+    'version':'版本','core-port':'内核端口','api-addr':'API 地址','gateway':'消息网关','fallback-llm':'默认 LLM',
     'dashboard':'Dashboard','user':'用户','port':'端口','basic-config':'基础配置','config-hint':'修改后点击保存，再点"重启内核"生效。敏感项已脱敏显示。',
     'save-config':'💾 保存配置','restart':'🔄 重启内核','restart-hint':'ℹ️ 重启内核会同时重启 消息网关 与 cron 调度',
     'saved':'✅ 配置已保存，请点"重启内核"生效','save-fail':'❌ 保存失败: ','restarting':'🔄 内核正在重启，几秒后刷新页面查看状态','restart-fail':'❌ 重启失败: ',
@@ -516,20 +606,26 @@ const I18N = {{
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
     'wechat-hint':'Configure WeChat channel. Save and restart to apply. Token comes from WeChat channel.',
     'core-status':'Core Status','state':'State','platform':'Platform',
-    'version':'Version','core-port':'Core Port','api-addr':'API Address','gateway':'Message Gateway','fallback-llm':'Fallback LLM',
+    'version':'Version','core-port':'Core Port','api-addr':'API Address','gateway':'Message Gateway','fallback-llm':'Default LLM',
     'dashboard':'Dashboard','user':'User','port':'Port','basic-config':'Basic Config','config-hint':'Edit then click Save, then Restart Core to apply. Sensitive fields are masked.',
     'save-config':'💾 Save Config','restart':'🔄 Restart Core','restart-hint':'ℹ️ Restarting the core also restarts the message gateway and cron scheduler',
     'saved':'✅ Config saved, click "Restart Core" to apply','save-fail':'❌ Save failed: ','restarting':'🔄 Core restarting, refresh in a few seconds','restart-fail':'❌ Restart failed: ',
     'running':'● Running','stopped':'● Stopped','healthy':'healthy','unconfigured':'○ Not configured'
   }}
 }};
-let currentLang = localStorage.getItem('hermes_lang') || 'zh';
-let currentTheme = localStorage.getItem('hermes_theme') || 'light';
+// 安全 localStorage (移动端 WebView/隐私模式可能无持久化缓存, 直接访问会抛异常导致整段脚本中断)
+function lsGet(k) {{ try {{ return window.localStorage.getItem(k); }} catch (e) {{ return null; }} }}
+function lsSet(k, v) {{ try {{ window.localStorage.setItem(k, v); }} catch (e) {{ /* 忽略 */ }} }}
+let currentLang = lsGet('hermes_lang') || 'zh';
+let currentTheme = lsGet('hermes_theme') || 'light';
 
 function applyI18n() {{
   document.querySelectorAll('[data-i18n]').forEach(el => {{
     const key = el.dataset.i18n;
-    if (I18N[currentLang][key]) el.textContent = I18N[currentLang][key];
+    const val = I18N[currentLang][key];
+    if (!val) return;
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {{ el.placeholder = val; }}
+    else {{ el.textContent = val; }}
   }});
   document.getElementById('btn-lang').textContent = currentLang === 'zh' ? '🌐 EN' : '🌐 中文';
   // 更新动态生成的表单 label/状态 (通过 data-i18n 无法覆盖, 用替换文本)
@@ -539,12 +635,12 @@ function applyI18n() {{
 }}
 function toggleLang() {{
   currentLang = currentLang === 'zh' ? 'en' : 'zh';
-  localStorage.setItem('hermes_lang', currentLang);
+  lsSet('hermes_lang', currentLang);
   applyI18n();
 }}
 function toggleTheme() {{
   currentTheme = currentTheme === 'light' ? 'dark' : 'light';
-  localStorage.setItem('hermes_theme', currentTheme);
+  lsSet('hermes_theme', currentTheme);
   document.body.dataset.theme = currentTheme;
   document.getElementById('btn-theme').textContent = currentTheme === 'light' ? '🌙' : '☀️';
 }}
@@ -562,8 +658,8 @@ function toggleSidebar(open) {{
   sidebar.classList.toggle('open', isOpen);
   overlay.classList.toggle('show', isOpen);
 }}
-const PROVIDER_ENV = {{ '9router':'ROUTER_API_KEY', 'deepseek':'DEEPSEEK_API_KEY', 'mimo':'XIAOMI_API_KEY', 'longcat':'LLM_API_KEY' }};
-const PROVIDER_NAME = {{ '9router':'9Router','deepseek':'DeepSeek','mimo':'Xiaomi MiMo','longcat':'LongCat' }};
+const PROVIDER_ENV = {{ '9router':'ROUTER_API_KEY', 'deepseek':'DEEPSEEK_API_KEY', 'mimo':'XIAOMI_API_KEY' }};
+const PROVIDER_NAME = {{ '9router':'9Router','deepseek':'DeepSeek','mimo':'Xiaomi MiMo' }};
 function editProvider(key) {{
   // 收起其他卡片的展开区
   document.querySelectorAll('.p-edit').forEach(e => e.remove());
@@ -587,20 +683,27 @@ function editProvider(key) {{
   const saveBtn = document.createElement('button');
   saveBtn.className = 'p-edit-save';
   saveBtn.textContent = '保存';
-  saveBtn.onclick = () => saveProvider(key);
+  saveBtn.onclick = (e) => {{ e.stopPropagation(); saveProvider(key); }};
   const cancelBtn = document.createElement('button');
   cancelBtn.className = 'p-edit-cancel';
   cancelBtn.textContent = '取消';
-  cancelBtn.onclick = () => edit.remove();
+  cancelBtn.onclick = (e) => {{ e.stopPropagation(); edit.remove(); }};
   btns.appendChild(saveBtn);
   btns.appendChild(cancelBtn);
   edit.appendChild(label);
   edit.appendChild(input);
   edit.appendChild(btns);
+  // 阻止点击编辑区冒泡到卡片 toggle, 避免重新展开导致输入/按钮被重置
+  edit.onclick = (e) => e.stopPropagation();
   card.appendChild(edit);
   input.focus();
-  input.addEventListener('keydown', (e) => {{ if (e.key === 'Enter') saveProvider(key); }});
+  input.addEventListener('keydown', (e) => {{ if (e.key === 'Enter' && !e.shiftKey) {{ e.preventDefault(); e.stopPropagation(); saveProvider(key); }} }});
 }}
+// 点击空白处退出 token 填写状态
+document.addEventListener('click', (e) => {{
+  if (e.target.closest('.provider-card') || e.target.closest('.p-edit')) return;
+  document.querySelectorAll('.p-edit').forEach(el => el.remove());
+}});
 async function saveProvider(key) {{
   const env = PROVIDER_ENV[key] || '';
   const edit = document.querySelector('.provider-card[data-provider="' + key + '"] .p-edit');
@@ -658,9 +761,17 @@ function addChatMsg(role, text) {{
     r.textContent = role === 'assistant' ? 'Hermes' : '错误';
     div.appendChild(r);
   }}
-  div.appendChild(document.createTextNode(text));
+  const body = document.createElement('span');
+  body.className = 'msg-body';
+  body.textContent = text;
+  div.appendChild(body);
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
+  return {{ el: div, body: body, box: box }};
+}}
+function boxScrollBottom() {{
+  const box = document.getElementById('chat-msgs');
+  if (box) box.scrollTop = box.scrollHeight;
 }}
 async function sendChat() {{
   const input = document.getElementById('chat-input');
@@ -669,16 +780,114 @@ async function sendChat() {{
   input.value = '';
   addChatMsg('user', text);
   chatHistory.push({{ role: 'user', content: text }});
-  const r = await api('/api/chat', 'POST', {{ messages: chatHistory }});
-  if (r.ok && r.reply) {{
-    addChatMsg('assistant', r.reply);
-    chatHistory.push({{ role: 'assistant', content: r.reply }});
-  }} else {{
-    addChatMsg('error', r.error || '对话失败');
+  // 显示思考中占位
+  const think = addChatMsg('assistant', '⏳ 思考中...');
+  const startTime = Date.now();
+  const headers = {{ 'Content-Type': 'application/json' }};
+  if (HERMES_AUTH) headers['Authorization'] = 'Bearer ' + HERMES_AUTH;
+  let replyText = '';
+  let modelName = '';
+  try {{
+    const res = await fetch('/api/chat', {{
+      method: 'POST',
+      headers,
+      body: JSON.stringify({{ messages: chatHistory, stream: true }})
+    }});
+    if (!res.ok) {{
+      const d = await res.json().catch(() => ({{}}));
+      throw new Error(d.error || ('HTTP ' + res.status));
+    }}
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let curEvent = '';
+    while (true) {{
+      const {{ done, value }} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {{ stream: true }});
+      // 按行解析 SSE
+      let idx;
+      while ((idx = buf.indexOf('\\n\\n')) !== -1) {{
+        const chunk = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        const lines = chunk.split('\\n');
+        for (const line of lines) {{
+          if (line.startsWith('event:')) {{ curEvent = line.slice(6).trim(); continue; }}
+          if (line.startsWith('data:')) {{
+            const payload = line.slice(5).trim();
+            if (payload === '[DONE]') {{ break; }}
+            try {{
+              const obj = JSON.parse(payload);
+              if (curEvent === 'meta') {{ if (obj.model) modelName = obj.model; }}
+              else if (obj.text) {{ replyText += obj.text; think.body.textContent = replyText; boxScrollBottom(); }}
+            }} catch (e) {{}}
+          }}
+        }}
+        curEvent = '';
+      }}
+    }}
+  }} catch (err) {{
+    think.el.className = 'chat-msg error';
+    think.body.textContent = '对话失败: ' + err.message;
+  }}
+  if (replyText) {{
+    // 计算耗时 (对齐飞书流式卡片 _format_elapsed: <60s 用 1 位小数, >=60s 用 Xm Ys)
+    const ms = Date.now() - startTime;
+    const seconds = ms / 1000;
+    const dur = seconds < 60 ? (seconds.toFixed(1) + 's') : (Math.floor(seconds / 60) + 'm ' + Math.floor(seconds % 60) + 's');
+    think.body.textContent = replyText;
+    // 底部元信息: [ 耗时 · 模型 ] — 独立小号元素, 与正文隔断
+    const mname = modelName || LLM_MODEL_NAME;
+    if (dur) {{
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'msg-meta';
+      metaDiv.textContent = '[ ' + dur + (mname ? ' · ' + mname : '') + ' ]';
+      think.el.appendChild(metaDiv);
+    }}
+    chatHistory.push({{ role: 'assistant', content: replyText }});
   }}
 }}
-document.getElementById('chat-input').addEventListener('keydown', (e) => {{
-  if (e.key === 'Enter' && !e.shiftKey) {{ e.preventDefault(); sendChat(); }}
+function toggleDashEnable() {{
+  const hid = document.getElementById('dash-enable-val');
+  const btn = document.getElementById('dash-enable-btn');
+  const txt = document.querySelector('.switch-text');
+  const isOn = (hid.value || '').toLowerCase() === 'true';
+  const next = isOn ? 'false' : 'true';
+  hid.value = next;
+  btn.classList.toggle('on', next === 'true');
+  txt.textContent = next === 'true' ? '开启' : '关闭';
+}}
+// 供应商默认 base_url (与后端 MODEL_PROVIDER_URLS 一致)
+const DM_URLS = {{ '9router':'http://127.0.0.1:20128/v1', 'deepseek':'https://api.deepseek.com/v1', 'mimo':'https://api.xiaomimimo.com/v1' }};
+const DM_DEF_MODEL = {{ '9router':'', 'deepseek':'deepseek-chat', 'mimo':'mimo-v2.5' }};
+// 选择供应商时自动带出 Base URL 和默认模型名 (兼容移动端: 不依赖 localStorage)
+function dmProviderChanged() {{
+  const prov = document.getElementById('dm-provider').value;
+  const baseInput = document.getElementById('dm-base');
+  const modelInput = document.getElementById('dm-model');
+  if (prov === 'custom') {{
+    // 自定义: 清空 base, 保留用户已填的模型名
+    baseInput.value = '';
+    return;
+  }}
+  if (DM_URLS[prov]) baseInput.value = DM_URLS[prov];
+  // 仅在模型名输入框为空时才带出默认模型名
+  if (!modelInput.value.trim() && DM_DEF_MODEL[prov]) modelInput.value = DM_DEF_MODEL[prov];
+}}
+async function saveDefaultModel() {{
+  const prov = document.getElementById('dm-provider').value;
+  let model = document.getElementById('dm-model').value.trim();
+  let base = document.getElementById('dm-base').value.trim();
+  if (prov !== 'custom' && !base) base = DM_URLS[prov] || '';
+  if (!model && DM_DEF_MODEL[prov]) model = DM_DEF_MODEL[prov];
+  const data = {{ LLM_MODEL: model, LLM_BASE_URL: base }};
+  const r = await api('/api/config', 'POST', data);
+  if (r.ok) showMsg('✅ 默认模型已保存，请点「重启内核」生效');
+  else showMsg('❌ 保存失败: ' + (r.error || ''), true);
+}}
+document.addEventListener('keydown', (e) => {{
+  const input = e.target && e.target.id === 'chat-input' ? e.target : null;
+  if (input && e.key === 'Enter' && !e.shiftKey) {{ e.preventDefault(); sendChat(); }}
 }});
 // 初始化
 document.body.dataset.theme = currentTheme;
@@ -694,9 +903,43 @@ def _render_group_fields(cfg, grp_key):
     """渲染单个分组为独立区块卡片."""
     grp_title, _ = CONFIG_GROUPS.get(grp_key, (grp_key, ""))
     fields_html = []
+    # 内核分组: 监听地址 + API 端口 放同一排 (flex row)
+    if grp_key == "core":
+        row = []
+        for key, label, sensitive, grp in CONFIG_FIELDS:
+            if grp != grp_key or key in ("API_SERVER_KEY",):
+                continue
+            val = cfg.get(key, "")
+            row.append(
+                f'<div class="field-col"><label>{label}</label>'
+                f'<input type="text" name="{key}" value="{val}" autocomplete="off"></div>'
+            )
+        if row:
+            fields_html.append('<div class="field-row">' + "".join(row) + "</div>")
     for key, label, sensitive, grp in CONFIG_FIELDS:
         if grp != grp_key:
             continue
+        # Dashboard 开关 → 按钮 (switch)
+        if key == "DASHBOARD_ENABLED":
+            val = cfg.get(key, "false")
+            checked = "true" in (val or "").lower()
+            fields_html.append(f'<label>{label}</label>')
+            fields_html.append(
+                f'<input type="hidden" id="dash-enable-val" name="DASHBOARD_ENABLED" value="{val}">'
+                f'<div class="switch-wrap">'
+                f'<button type="button" id="dash-enable-btn" class="switch{" on" if checked else ""}" '
+                f'onclick="toggleDashEnable()"><span class="knob"></span></button>'
+                f'<span class="switch-text">{ "开启" if checked else "关闭" }</span></div>'
+            )
+            continue
+        if key == "API_SERVER_KEY":
+            shown = _mask(val) if val else "未设置"
+            ph = f"当前值: {shown}（留空则不改）"
+            fields_html.append(f'<label>{label}</label>')
+            fields_html.append(f'<input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
+            continue
+        if grp_key == "core":
+            continue  # 已在上面 flex row 渲染
         val = cfg.get(key, "")
         if sensitive:
             shown = _mask(val) if val else "未设置"
@@ -732,6 +975,47 @@ def _form_fields_feishu(cfg):
 def _form_fields_wechat(cfg):
     """微信面板字段."""
     return _render_group_fields(cfg, "wechat")
+
+
+def _render_default_model(cfg):
+    """渲染「默认模型」配置卡片: 显示并允许修改默认模型."""
+    model = cfg.get("LLM_MODEL", "")
+    base = cfg.get("LLM_BASE_URL", "")
+    # 按 base_url 推断当前默认供应商
+    prov_name = "未指定"
+    base_map = {
+        "http://127.0.0.1:20128": "9Router（本机）",
+        "api.deepseek.com": "DeepSeek",
+        "api.xiaomimimo.com": "Xiaomi MiMo",
+    }
+    for hint, nm in base_map.items():
+        if hint in (base or ""):
+            prov_name = nm
+            break
+    opts = "".join(
+        f'<option value="{p["key"]}"{" selected" if prov_name == p["name"] else ""}>{p["name"]}</option>'
+        for p in MODEL_PROVIDERS
+    )
+    opts += '<option value="custom">自定义 URL</option>'
+    cur = f'<div class="dm-current"><b>{model or "（未设置）"}</b> @ {base or "（未设置）"} · {prov_name}</div>'
+    return (
+        '<div class="cfg-section" id="default-model-sec">'
+        '<div class="cfg-section-title">🎯 默认模型</div>'
+        + cur
+        + '<div style="font-size:11px;color:var(--muted);margin:6px 0 10px;">修改默认模型（供应商 / 模型名 / Base URL），保存后重启内核生效。</div>'
+        '<div class="field-row">'
+        '<div class="field-col"><label>供应商</label>'
+        f'<select id="dm-provider" class="dm-input" onchange="dmProviderChanged()">{opts}</select></div>'
+        '<div class="field-col"><label>模型名</label>'
+        f'<input type="text" id="dm-model" class="dm-input" value="{model}" placeholder="如 deepseek-chat"></div>'
+        '<div class="field-col"><label>Base URL</label>'
+        f'<input type="text" id="dm-base" class="dm-input" value="{base}" placeholder="如 https://api.example.com/v1"></div>'
+        '</div>'
+        '<div class="btn-row" style="margin-top:10px;">'
+        '<button class="primary" onclick="saveDefaultModel()">💾 保存默认模型</button>'
+        '</div>'
+        '</div>'
+    )
 
 
 def _render_providers_grid(cfg):
@@ -777,6 +1061,35 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _stream_chat(self, messages):
+        """SSE 流式聊天响应."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "close")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+        gen, err, captured_model = _chat_proxy(messages, stream=True)
+        if err:
+            self.wfile.write(f"event: error\ndata: {json.dumps({'error': err})}\n\n".encode())
+            self.wfile.flush()
+            return
+        try:
+            for piece in gen:
+                if piece:
+                    self.wfile.write(f"data: {json.dumps({'text': piece})}\n\n".encode())
+                    self.wfile.flush()
+        except Exception:
+            pass
+        try:
+            # 发送 model 元信息 (前端用于展示 【耗时 · 模型名】)
+            mdl = captured_model[0] if captured_model else ""
+            self.wfile.write(f"event: meta\ndata: {json.dumps({'model': mdl})}\n\n".encode())
+            self.wfile.write(b"data: [DONE]\n\n")
+            self.wfile.flush()
+        except Exception:
+            pass
+
     def do_GET(self):  # noqa: N802
         if self.path == "/":
             self._render_page()
@@ -816,11 +1129,15 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 data = {}
             messages = data.get("messages", [])
-            reply, err = _chat_proxy(messages)
-            if reply is not None:
-                self._json({"ok": True, "reply": reply})
+            want_stream = bool(data.get("stream"))
+            if want_stream:
+                self._stream_chat(messages)
             else:
-                self._json({"ok": False, "error": err or "chat failed"})
+                reply, err = _chat_proxy(messages)
+                if reply is not None:
+                    self._json({"ok": True, "reply": reply})
+                else:
+                    self._json({"ok": False, "error": err or "chat failed"})
         else:
             self._json({"ok": False, "error": "not found"}, 404)
 
@@ -921,7 +1238,10 @@ class Handler(BaseHTTPRequestHandler):
             DASH_PORT=dash_port,
             FORM_FIELDS=_form_fields(cfg),
             PROVIDERS_GRID=_render_providers_grid(cfg),
+            DEFAULT_MODEL_HTML=_render_default_model(cfg),
             AUTH_TOKEN=json.dumps(API_KEY),   # 注入鉴权 token 到前端 JS
+            LLM_MODEL_JSON=json.dumps(cfg.get("LLM_MODEL", "")),   # 注入默认模型名
+            STATUS_VER=STATUS_VER,
             TS=time.strftime("%Y-%m-%d %H:%M:%S"),
         )
         body = html.encode()

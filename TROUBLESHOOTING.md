@@ -4,6 +4,49 @@
 
 ---
 
+## 2026-08-04 (更新后运行旧状态页代码 — DATA_DIR 残留副本抢占)
+
+> 重大：这就是版本号修复"不生效"的真正根因。0.4.5.1/0.4.5.2 的版本号动态读取修复正确，但运行的一直是旧代码，所以看起来"没修好"。
+
+**现象**：更新 HermesCore 到新版后，状态页底部版本号仍不更新 / 显示旧版 / 干脆不显示，前面加的修复代码似乎完全没生效。
+
+**根因**（两个目录的优先级和替换问题）：
+- fpk 的 `cmd/status_server.py` 装到 `/var/apps/HermesCore/cmd/`（每次更新都会替换成新版）。
+- 但 `/vol4/@appdata/HermesCore/status_server.py`（运行数据目录）**残留了一个旧副本**（早期调试时手动拷过去的）。
+- `cmd/main` 定位 status_server.py 时有一行：`[ -f "${DATA_DIR}/status_server.py" ] && STATUS_SRC="${DATA_DIR}/status_server.py"` —— 它**优先用 DATA_DIR 的副本**，盖过了 fpk 的新代码。
+- 结果：每次更新后，cmd/main 启动的都是 `DATA_DIR` 里的旧 status_server.py，新版本号修复根本没跑。
+
+**验证**：
+```bash
+ps aux | grep status_server   # 看运行的是哪个路径
+# 运行的是 /vol4/@appdata/HermesCore/status_server.py (旧), 不是 /var/apps/HermesCore/cmd/status_server.py (新)
+```
+
+**修复**（v0.4.5.3）：cmd/main **删掉 DATA_DIR 优先行**，只用 fpk 安装目录（CMD_DIR > APP_DIR/cmd > APP_DIR/target/cmd）。同时删除残留的 `/vol4/@appdata/HermesCore/status_server.py`。
+
+**教训**：应用运行时代码（status_server.py 等）**绝不该从运行数据目录 (`/vol4/@appdata/`) 取**，那是易变的运行时状态，会残留旧副本。代码只认 fpk 安装目录。排查"修复不生效"时，先确认 `ps aux` 里实际跑的是哪个路径的文件。
+
+---
+
+## 2026-08-04 (状态页版本号升级不变)
+
+### 现象：状态页底部版本号升级后不更新
+
+**现象**：状态页底部显示 `Hermes Core v0.4.4.14`，但应用已升级到 0.4.5，版本号仍停留在旧测试包版本（或干脆不显示）。
+
+**根因**：
+- 0.4.4.x 时期 footer 版本号是**硬编码**的 `STATUS_VER = "0.4.4.14"`（写在 status_server.py 里），每发一版都要手动改。
+- 0.4.5 构建时把硬编码版本**整个删掉了**（footer 变成 `Hermes Core · 本地内核`），导致版本号要么消失、要么停在上一个值。硬编码方式本身易漏改。
+
+**修复**（v0.4.5.1）：版本号改为**动态从已安装 manifest 读取**：
+- `status_server.py` 新增 `_app_version()`：从 `CORE_CMD` 推导 app 目录 → 读 `manifest` 的 `version = X.Y.Z` 行；备选 `/var/apps/HermesCore/manifest`、`/vol4/@appcenter/HermesCore/manifest`。
+- footer 改为 `Hermes Core <b>v{APP_VERSION}</b> · 本地内核 · {TS}`，`APP_VERSION` 为空时不显示版本。
+- **升级即自动更新**，无需每次手动改版本号。
+
+**教训**：应用自身版本号不要硬编码进 status_server.py，应从打包 manifest 动态读取（fnOS 应用 manifest 是版本唯一来源）。
+
+---
+
 ## 2026-08-03 (第八次迭代)
 
 ### 更新 HermesCore 后配置丢失 — install_callback 空向导覆盖
