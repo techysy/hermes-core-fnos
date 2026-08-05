@@ -1,8 +1,8 @@
 appname               = HermesCore
-version               = 0.4.7.8
+version               = 0.4.7.9
 display_name          = Hermes Core
 desc                  = Hermes Agent 本地内核 — 独立 Gateway API 服务，供 Hermes WebUI 等前端连接
-changelog             = 测试包：修复重启菜单图标重复(🔄🔄)；修复版本号窄屏显示；语言按钮去文字只留🌐
+changelog             = 测试包：修复移动端布局异常（移除消息平台状态时多留</div>导致 .main 提前闭合、主内容被挤压成几十px）
 arch                  = x86_64
 source                = thirdparty
 maintainer            = techysy

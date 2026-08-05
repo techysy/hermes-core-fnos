@@ -616,7 +616,6 @@ PAGE = """<!DOCTYPE html>
     </div>
   </div>
   </div>
-  </div>
 
   <!-- 模型供应商面板 -->
   <div class="nav-panel" id="panel-providers" style="display:none">
