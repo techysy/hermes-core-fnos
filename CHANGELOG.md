@@ -9,6 +9,7 @@
 - **默认模型配置调教卡片** — 模型供应商页新增「🎯 默认模型」卡片，可直接修改默认模型（供应商 / 模型名 / Base URL），保存后重启内核生效；选择供应商时自动带出 Base URL 和默认模型名（兼容移动端，不依赖 localStorage）
 - **移动端适配** — 顶部标题取消、触控友好布局（继承 0.4.4.14-test UI 迭代）
 - **安装向导完整化** — 默认模型步骤补全「模型供应商」选择器（9Router/DeepSeek/Xiaomi MiMo/自定义 URL）+「API Token」字段 +「Base URL」（自定义时必填）+「默认模型名」（可选），install_callback 按供应商映射 base_url/默认模型并写 gateway.env
+- **消息平台设置面板** — 侧边栏新增「📡 消息平台」，配置飞书（App ID/Secret/验证 Token/加密 Key）和微信（账号 ID/Token），保存后重启内核生效；微信用内置适配器（自动启用），飞书自动安装 hermes-lark-streaming 插件
 
 ### 修复 / Fixed
 - **更新后运行旧状态页代码（核心问题）** — cmd/main 定位 status_server.py 不再从运行数据目录 (`/vol4/@appdata/`) 取，杜绝残留旧副本抢占新代码。根因：`/vol4/@appdata/HermesCore/status_server.py` 残留旧副本 + cmd/main 的 `DATA_DIR` 优先行，导致每次更新后运行的都是旧版本
