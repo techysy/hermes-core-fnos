@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.4.7.3-test (2026-08-05)
+
+> 测试包 — 修复网关重启后残留旧进程。基于 v0.4.7.2。
+
+### 修复 / Fixed
+- **网关每次重启后残留旧进程** — 旧版/不同方式启动的 Hermes 网关进程 cmdline 是 `python -m hermes_cli.main gateway run`，不含 `hermes gateway run` 连写，stop() 的 pkill 匹配不到导致孤儿进程残留、端口占用（如旧进程占 18642 而新进程起在 8642）。stop() 增加 `hermes_cli.main gateway run` 匹配彻底清理。
+
 ## 0.4.7.2-test (2026-08-05)
 
 > 测试包 — 修复前端按钮全部失效。基于 v0.4.7.1。
