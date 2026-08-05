@@ -529,7 +529,7 @@ PAGE = """<!DOCTYPE html>
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
     </div>
     <div class="topbar-actions">
-      <button class="icon-btn" onclick="toggleLang()" id="btn-lang">🌐 EN</button>
+      <button class="icon-btn" onclick="toggleLang()" id="btn-lang" title="语言/Language">🌐</button>
       <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙</button>
       <div class="topbar-menu" id="topbar-menu">
         <button class="icon-btn" onclick="toggleTopMenu()" aria-label="菜单">⋮</button>
@@ -614,9 +614,7 @@ PAGE = """<!DOCTYPE html>
     <div class="msg-wrap">
       {MSG_FIELDS}
     </div>
-    <p style="font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.6;" data-i18n="messaging-status">
-      {MSG_STATUS}
-    </p>
+  </div>
   </div>
   </div>
 
@@ -689,7 +687,7 @@ function applyI18n() {{
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {{ el.placeholder = val; }}
     else {{ el.textContent = val; }}
   }});
-  document.getElementById('btn-lang').textContent = currentLang === 'zh' ? '🌐 EN' : '🌐 中文';
+  document.getElementById('btn-lang').textContent = '🌐';
   // 更新动态生成的表单 label/状态 (通过 data-i18n 无法覆盖, 用替换文本)
   document.querySelectorAll('label').forEach(l => {{
     // label 文本由后端生成, i18n 主要覆盖静态部分
@@ -1201,18 +1199,6 @@ def _render_msg_overlay(cfg, grp, p):
     )
 
 
-def _msg_status(cfg):
-    """消息平台连接状态摘要 (四个平台)."""
-    names = {"feishu": "飞书", "wechat": "微信", "qq": "QQ", "dingtalk": "钉钉"}
-    parts = []
-    for grp, nm in names.items():
-        keys = [k for k, _l, _s, g in CONFIG_FIELDS if g == grp]
-        configured = any(cfg.get(k, "") for k in keys)
-        txt = "🟢 已配置" if configured else "⚪ 未配置"
-        parts.append(f'<span>{names[grp]}: <b>{txt}</b></span>')
-    return f'<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;">' + "".join(parts) + "</div>"
-
-
 def _render_default_model(cfg):
     """渲染「默认模型」配置卡片: 显示并允许修改默认模型."""
     model = cfg.get("LLM_MODEL", "")
@@ -1595,7 +1581,6 @@ class Handler(BaseHTTPRequestHandler):
             DASH_PORT=dash_port,
             FORM_FIELDS=_form_fields(cfg),
             MSG_FIELDS=_msg_fields(cfg),
-            MSG_STATUS=_msg_status(cfg),
             PROVIDERS_GRID=_render_providers_grid(cfg),
             DEFAULT_MODEL_HTML=_render_default_model(cfg),
             AUTH_TOKEN=json.dumps(API_KEY),   # 注入鉴权 token 到前端 JS

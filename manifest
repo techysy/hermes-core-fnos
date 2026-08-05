@@ -1,8 +1,8 @@
 appname               = HermesCore
-version               = 0.4.7.6
+version               = 0.4.7.7
 display_name          = Hermes Core
 desc                  = Hermes Agent 本地内核 — 独立 Gateway API 服务，供 Hermes WebUI 等前端连接
-changelog             = 测试包：顶栏语言/主题放外面+菜单加更新日志；消息平台卡片改覆盖层交互不撑开；保存按钮缩小；飞书加开放平台引导链接
+changelog             = 测试包：右上角语言按钮去掉EN/中文文字只留🌐；移除消息平台底部重复状态（卡片自带+状态页有消息网关）；保存按钮缩小；飞书加开放平台引导
 arch                  = x86_64
 source                = thirdparty
 maintainer            = techysy
