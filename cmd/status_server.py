@@ -415,15 +415,20 @@ PAGE = """<!DOCTYPE html>
   .provider-card .p-status.pending {{ background:var(--down-bg); color:var(--down-text); }}
   .provider-card .p-badge {{ position:absolute; top:10px; right:10px; font-size:11px; padding:2px 8px; border-radius:10px; background:var(--accent); color:#fff; }}
   .provider-card .p-desc {{ font-size:11px; color:var(--muted); margin-top:6px; }}
-  /* 消息平台卡片网格 (参考供应商页) */
+  /* 消息平台卡片网格 (参考供应商页) — 卡片加高, 编辑用绝对定位覆盖层不撑开 */
   .msg-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }}
-  .msg-card {{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .15s; }}
+  .msg-card {{ position:relative; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .15s; min-height:150px; display:flex; flex-direction:column; }}
   .msg-card:hover {{ border-color:var(--accent); }}
   .msg-card .msg-card-ico {{ width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:10px; }}
   .msg-card .msg-card-name {{ font-size:14px; font-weight:600; margin-bottom:4px; }}
-  .msg-card .msg-card-status {{ font-size:12px; display:inline-flex; padding:3px 10px; border-radius:20px; margin-top:6px; background:var(--down-bg); color:var(--down-text); }}
-  .msg-card .msg-card-desc {{ font-size:11px; color:var(--muted); margin-top:6px; }}
-  .msg-card-body input {{ margin-bottom:2px; }}
+  .msg-card .msg-card-status {{ font-size:12px; display:inline-flex; padding:3px 10px; border-radius:20px; margin-top:6px; background:var(--down-bg); color:var(--down-text); align-self:flex-start; }}
+  .msg-card .msg-card-desc {{ font-size:11px; color:var(--muted); margin-top:auto; padding-top:8px; }}
+  /* 平台配置覆盖层 (绝对定位, 同供应商 p-edit) */
+  .msg-edit {{ position:absolute; top:0; left:0; right:0; bottom:0; z-index:5; background:var(--card); border-radius:12px; padding:12px; overflow-y:auto; box-shadow:0 2px 12px var(--shadow); }}
+  .msg-edit-title {{ font-size:12px; font-weight:600; margin-bottom:8px; }}
+  .msg-edit label {{ font-size:11px; color:var(--muted); margin:6px 0 2px; }}
+  .msg-edit input {{ width:100%; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-size:12px; box-sizing:border-box; background:var(--input-bg); color:var(--text); margin-bottom:4px; }}
+  .msg-qr-btn {{ margin:4px 0 6px; padding:6px 10px; border:none; border-radius:6px; background:var(--accent); color:#fff; font-size:12px; cursor:pointer; }}
   @media (max-width: 600px) {{ .msg-grid {{ grid-template-columns:1fr 1fr; }} }}
   /* 卡片内联配置区 (响应式) */
   /* 卡片内联配置区 — 绝对定位覆盖在原卡片容器上, 不改卡片高度 (网格不被撑大) */
@@ -461,9 +466,10 @@ PAGE = """<!DOCTYPE html>
   input:focus {{ outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(47,111,237,.15); }}
   button {{ margin-top:16px; padding:12px 16px; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:500; }}
   .primary {{ background:var(--accent); color:#fff; width:100%; }}
+  .save-btn {{ display:inline-block; margin-top:14px; padding:8px 20px; width:auto; font-size:13px; border:none; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; font-weight:500; }}
   .warn {{ background:var(--card); color:var(--text); border:1px solid var(--border); width:100%; }}
   button:active {{ opacity:.85; }}
-  .msg {{ margin-top:12px; padding:10px; border-radius:8px; font-size:13px; display:none; word-break:break-all; }}
+  .msg {{ margin:12px 0; padding:10px; border-radius:8px; font-size:13px; display:none; word-break:break-all; }}
   .msg.ok {{ background:var(--ok-bg); color:var(--ok-text); display:block; }}
   .msg.err {{ background:var(--down-bg); color:var(--down-text); display:block; }}
   .btn-row {{ display:flex; gap:10px; margin-top:16px; }}
@@ -523,11 +529,12 @@ PAGE = """<!DOCTYPE html>
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
     </div>
     <div class="topbar-actions">
+      <button class="icon-btn" onclick="toggleLang()" id="btn-lang">🌐 EN</button>
+      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙</button>
       <div class="topbar-menu" id="topbar-menu">
         <button class="icon-btn" onclick="toggleTopMenu()" aria-label="菜单">⋮</button>
         <div class="menu-dropdown" id="menu-dropdown" style="display:none;">
-          <div class="menu-item" onclick="toggleLang()"><span class="menu-ico">🌐</span><span data-i18n="menu-lang">语言切换</span></div>
-          <div class="menu-item" onclick="toggleTheme()"><span class="menu-ico">🌙</span><span data-i18n="menu-theme">主题</span></div>
+          <div class="menu-item" onclick="openChangelog()"><span class="menu-ico">📜</span><span data-i18n="menu-changelog">更新日志</span></div>
           <div class="menu-item menu-danger" onclick="restartCore()"><span class="menu-ico">🔄</span><span data-i18n="restart">重启内核</span></div>
         </div>
       </div>
@@ -590,7 +597,7 @@ PAGE = """<!DOCTYPE html>
       {FORM_FIELDS}
     </form>
     <div class="btn-row">
-      <button class="primary" onclick="saveConfig('cfgform')" data-i18n="save-config">💾 保存配置</button>
+      <button class="save-btn" onclick="saveConfig('cfgform')" data-i18n="save-config">💾 保存配置</button>
     </div>
     <p style="font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.5;" data-i18n="restart-hint">
       ℹ️ 重启内核会同时重启 <b>消息网关</b>（Feishu/Telegram/微信等平台连接）与 cron 调度，消息平台短暂断开后自动恢复。重启请用右上角 🔄 按钮。
@@ -604,21 +611,8 @@ PAGE = """<!DOCTYPE html>
     <h2>📡 <span data-i18n="nav-messaging">消息平台</span></h2>
     <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.6;" data-i18n="messaging-hint">配置飞书/微信/QQ/钉钉消息渠道，让 Hermes 能从聊天平台收发消息。点击平台卡片展开配置，保存后点右上角 🔄 重启生效。</p>
     <div id="msg-messaging" class="msg"></div>
-    <form id="cfgform-msg">
+    <div class="msg-wrap">
       {MSG_FIELDS}
-    </form>
-    <div class="btn-row">
-      <button class="primary" onclick="saveConfig('cfgform-msg','msg-messaging')" data-i18n="save-config">💾 保存配置</button>
-    </div>
-    <div class="wxqr-section">
-      <div class="cfg-section-title">📱 微信扫码登录</div>
-      <p style="font-size:12px;color:var(--muted);margin:0 0 8px;" data-i18n="wxqr-hint">用微信扫二维码即可自动绑定账号并写入 Token，无需手动填账号 ID/Token。扫码需联网访问微信 iLink。</p>
-      <button class="wxqr-btn" onclick="wxQrStart()" data-i18n="wxqr-start">📱 开始扫码登录</button>
-      <div id="wxqr-area" style="display:none;margin-top:10px;text-align:center;">
-        <img id="wxqr-img" style="width:200px;height:200px;border:1px solid var(--border);border-radius:8px;background:#fff;" alt="微信二维码"/>
-        <div id="wxqr-msg" style="font-size:12px;color:var(--muted);margin-top:6px;" data-i18n="wxqr-wait">用微信扫一扫上面的二维码...</div>
-        <div><a id="wxqr-link" href="#" target="_blank" style="font-size:11px;color:var(--accent);" data-i18n="wxqr-open">打不开？点这里打开二维码链接</a></div>
-      </div>
     </div>
     <p style="font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.6;" data-i18n="messaging-status">
       {MSG_STATUS}
@@ -650,7 +644,7 @@ const I18N = {{
     'providers-hint':'点击供应商卡片配置 API Key。默认模型由安装向导设置，9Router 为本地代理（非强制默认）。',
     'messaging-hint':'配置飞书/微信/QQ/钉钉消息渠道，让 Hermes 能从聊天平台收发消息。点击平台卡片展开配置，保存后点右上角 🔄 重启生效。',
     'messaging-status':'📡 状态提示：配置飞书/微信后重启内核，Hermes 消息网关即连接对应平台。当前渠道连接状态见「状态」页的消息网关卡片。',
-    'menu-lang':'语言切换','menu-theme':'主题',
+    'menu-lang':'语言切换','menu-theme':'主题','menu-changelog':'更新日志',
     'wxqr-hint':'用微信扫二维码即可自动绑定账号并写入 Token，无需手动填账号 ID/Token。扫码需联网访问微信 iLink。',
     'wxqr-start':'📱 开始扫码登录','wxqr-wait':'用微信扫一扫上面的二维码...','wxqr-open':'打不开？点这里打开二维码链接',
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
@@ -668,7 +662,7 @@ const I18N = {{
     'providers-hint':'Click a provider card to configure its API Key. Default model is set in install wizard; 9Router is a local proxy (not forced default).',
     'messaging-hint':'Configure Feishu/WeChat/QQ/DingTalk messaging channels so Hermes can send/receive messages from chat platforms. Click a platform card to expand config, save then restart with the top-right 🔄.',
     'messaging-status':'📡 Tip: after configuring Feishu/WeChat and restarting the core, the Hermes message gateway connects to those platforms. See the Message Gateway card on the Status page for current connection state.',
-    'menu-lang':'Language','menu-theme':'Theme',
+    'menu-lang':'Language','menu-theme':'Theme','menu-changelog':'Changelog',
     'wxqr-hint':'Scan the QR with WeChat to auto-bind your account and write the token — no need to fill Account ID/Token manually. Requires internet access to WeChat iLink.',
     'wxqr-start':'📱 Start QR Login','wxqr-wait':'Scan the QR code above with WeChat...','wxqr-open':'Cannot open? Click here for the QR link',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
@@ -710,7 +704,8 @@ function toggleTheme() {{
   currentTheme = currentTheme === 'light' ? 'dark' : 'light';
   lsSet('hermes_theme', currentTheme);
   document.body.dataset.theme = currentTheme;
-  // 主题切换后关闭下拉菜单
+  const b = document.getElementById('btn-theme');
+  if (b) b.textContent = currentTheme === 'light' ? '🌙' : '☀️';
   const dd = document.getElementById('menu-dropdown');
   if (dd) dd.style.display = 'none';
 }}
@@ -718,6 +713,12 @@ function toggleTopMenu() {{
   const dd = document.getElementById('menu-dropdown');
   if (!dd) return;
   dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}}
+function openChangelog() {{
+  const dd = document.getElementById('menu-dropdown');
+  if (dd) dd.style.display = 'none';
+  // 打开 GitHub Releases 页 (跳转到更新日志)
+  window.open('https://github.com/techysy/hermes-core-fnos/releases', '_blank');
 }}
 // 点击空白处关闭下拉菜单
 document.addEventListener('click', (e) => {{
@@ -734,10 +735,37 @@ function switchNav(nav) {{
   // 移动端: 切换后收起侧栏
   if (window.innerWidth <= 768) toggleSidebar(false);
 }}
-// 消息平台卡片: 点击展开/收起该平台的配置字段
-function toggleMsgCard(grp) {{
-  const body = document.getElementById('msg-card-' + grp);
-  if (body) body.style.display = body.style.display === 'none' ? 'block' : 'none';
+// 消息平台卡片: 点击打开该平台的配置覆盖层
+function openMsgCard(grp) {{
+  document.querySelectorAll('.msg-edit').forEach(e => e.style.display = 'none');
+  const ov = document.getElementById('msg-edit-' + grp);
+  if (ov) ov.style.display = 'block';
+}}
+function closeMsgCard(grp) {{
+  const ov = document.getElementById('msg-edit-' + grp);
+  if (ov) ov.style.display = 'none';
+}}
+// 消息平台卡片: 保存该平台覆盖层内的字段
+async function saveMsgCard(grp) {{
+  const ov = document.getElementById('msg-edit-' + grp);
+  if (!ov) return;
+  const sensitive = ['FEISHU_APP_SECRET','FEISHU_VERIFICATION_TOKEN','FEISHU_ENCRYPT_KEY',
+                     'WEIXIN_TOKEN','QQ_APP_SECRET','DINGTALK_CLIENT_SECRET'];
+  const data = {{}};
+  ov.querySelectorAll('input').forEach(inp => {{
+    const k = inp.name, v = inp.value.trim();
+    if (sensitive.includes(k) && !v) return; // 敏感留空 = 不修改
+    if (!k) return;
+    data[k] = v;
+  }});
+  const r = await api('/api/config', 'POST', data);
+  if (r.ok) {{
+    closeMsgCard(grp);
+    showMsg('✅ 已保存，点右上角 🔄 重启生效', false, 'msg-messaging');
+    setTimeout(() => location.reload(), 800);
+  }} else {{
+    showMsg('❌ 保存失败: ' + (r.error || ''), true, 'msg-messaging');
+  }}
 }}
 function toggleSidebar(open) {{
   const sidebar = document.getElementById('sidebar');
@@ -1104,36 +1132,73 @@ def _form_fields_wechat(cfg):
 
 
 def _msg_fields(cfg):
-    """消息平台面板: 渲染为平台卡片网格 (参考供应商页). 点击卡片展开配置字段."""
+    """消息平台面板: 平台卡片网格. 点击卡片 → 绝对定位覆盖层编辑配置 (同供应商卡片交互, 不撑开卡片)."""
     platforms = [
-        {"grp": "feishu", "name": "飞书", "ico": "💬", "bg": "#3370ff", "desc": "企业自建应用 App ID/Secret"},
-        {"grp": "wechat", "name": "微信", "ico": "💚", "bg": "#07c160", "desc": "im.bot 通道, 支持扫码登录"},
+        {"grp": "feishu", "name": "飞书", "ico": "💬", "bg": "#3370ff", "desc": "企业自建应用，支持扫码授权"},
+        {"grp": "wechat", "name": "微信", "ico": "💚", "bg": "#07c160", "desc": "im.bot 通道，支持扫码登录"},
         {"grp": "qq", "name": "QQ", "ico": "🐧", "bg": "#12b7f5", "desc": "QQ 机器人 App ID/Secret"},
         {"grp": "dingtalk", "name": "钉钉", "ico": "📌", "bg": "#0089ff", "desc": "钉钉机器人 Client ID/Secret"},
     ]
     cards = []
     for p in platforms:
         grp = p["grp"]
-        fields = _render_group_fields(cfg, grp)
-        # 判断已配置: 取该组第一个非空字段
+        # 生成该平台的字段覆盖层 (绝对定位, 不撑开卡片)
+        fields = _render_msg_overlay(cfg, grp, p)
         keys = [k for k, _l, _s, g in CONFIG_FIELDS if g == grp]
         configured = any(cfg.get(k, "") for k in keys)
         status_txt = "🟢 已配置" if configured else "⚪ 未配置"
-        body = ""
-        if fields:
-            body = (f'<div class="msg-card-body" id="msg-card-{grp}" style="display:none;'
-                    f'margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">'
-                    f'{fields}</div>')
         cards.append(
-            f'<div class="msg-card" data-msg="{grp}" onclick="toggleMsgCard(\'{grp}\')">'
+            f'<div class="msg-card" data-msg="{grp}" onclick="openMsgCard(\'{grp}\')">'
             f'<div class="msg-card-ico" style="background:{p["bg"]};">{p["ico"]}</div>'
             f'<div class="msg-card-name">{p["name"]}</div>'
             f'<span class="msg-card-status">{status_txt}</span>'
             f'<div class="msg-card-desc">{p["desc"]}</div>'
-            f'{body}'
+            f'{fields}'
             f'</div>'
         )
     return '<div class="msg-grid">' + "".join(cards) + "</div>"
+
+
+def _render_msg_overlay(cfg, grp, p):
+    """渲染单个平台的配置覆盖层 (绝对定位). 含扫码入口 + 字段 + 保存/取消."""
+    # 该平台的可配置字段
+    pfields = [f for f in CONFIG_FIELDS if f[3] == grp]
+    if not pfields:
+        return ""
+    inputs = []
+    for key, label, sensitive, _g in pfields:
+        val = cfg.get(key, "")
+        if sensitive:
+            shown = _mask(val) if val else "未设置"
+            ph = f"当前: {shown}（留空不改）"
+            inputs.append(f'<label>{label}</label><input type="text" name="{key}" placeholder="{ph}" value="" autocomplete="off">')
+        else:
+            inputs.append(f'<label>{label}</label><input type="text" name="{key}" value="{val}" autocomplete="off">')
+    # 扫码入口: 微信用 iLink 扫码; 飞书用授权链接占位 (如有)
+    qr_btn = ""
+    if grp == "wechat":
+        qr_btn = (f'<div style="margin:6px 0 2px;">'
+                  f'<button type="button" class="msg-qr-btn" onclick="wxQrStart()">📱 扫码登录</button>'
+                  f'<div id="wxqr-area" style="display:none;margin-top:8px;text-align:center;">'
+                  f'<img id="wxqr-img" style="width:150px;height:150px;border:1px solid var(--border);border-radius:8px;background:#fff;" alt="微信二维码"/>'
+                  f'<div id="wxqr-msg" style="font-size:11px;color:var(--muted);margin-top:6px;">用微信扫一扫上面的二维码...</div>'
+                  f'<div><a id="wxqr-link" href="#" target="_blank" style="font-size:10px;color:var(--accent);">打不开？点这里打开链接</a></div>'
+                  f'</div></div>')
+    elif grp == "feishu":
+        qr_btn = (f'<div style="margin:6px 0 2px;">'
+                  f'<a href="https://open.feishu.cn/app?lang=zh-CN" target="_blank" class="msg-qr-btn" style="display:inline-block;text-decoration:none;text-align:center;">🚀 去飞书开放平台创建应用</a>'
+                  f'</div>')
+    return (
+        f'<div class="msg-edit" id="msg-edit-{grp}" style="display:none;">'
+        f'<div class="msg-edit-title">{p["name"]} 配置</div>'
+        f'{qr_btn}'
+        f'{"".join(inputs)}'
+        f'<div class="p-edit-btns">'
+        f'<button type="button" class="p-edit-save" onclick="saveMsgCard(\'{grp}\')">保存</button>'
+        f'<button type="button" class="p-edit-cancel" onclick="closeMsgCard(\'{grp}\')">取消</button>'
+        f'</div>'
+        f'</div>'
+    )
 
 
 def _msg_status(cfg):
@@ -1183,7 +1248,7 @@ def _render_default_model(cfg):
         f'<input type="text" id="dm-base" class="dm-input" value="{base}" placeholder="如 https://api.example.com/v1"></div>'
         '</div>'
         '<div class="btn-row" style="margin-top:10px;">'
-        '<button class="primary" onclick="saveDefaultModel()">💾 保存默认模型</button>'
+        '<button class="save-btn" onclick="saveDefaultModel()">💾 保存默认模型</button>'
         '</div>'
         '</div>'
     )
