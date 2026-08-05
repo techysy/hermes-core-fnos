@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.4.7.2-test (2026-08-05)
+
+> 测试包 — 修复前端按钮全部失效。基于 v0.4.7.1。
+
+### 修复 / Fixed
+- **前端按钮全部失效** — 英文 i18n 的 `wxqr-open` 文案含撇号（`Can\'t open?`），经 Python `.format()` 处理后反斜杠被吞掉变成未转义撇号，导致整个 `<script>` 块 JS 语法错误，所有按钮（保存/重启/扫码/聊天/主题切换）失效。改为不含撇号的措辞（`Cannot open?`），消除转义依赖。已用 `node --check` 验证 JS 语法通过。
+
 ## 0.4.7.1-test (2026-08-05)
 
 > 测试包 — 新增微信扫码登录（集成 Hermes gateway.platforms.weixin 原生 iLink QR 机制）。基于 v0.4.7。
