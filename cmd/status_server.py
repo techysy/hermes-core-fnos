@@ -350,7 +350,7 @@ PAGE = """<!DOCTYPE html>
   .menu-item:hover {{ background:var(--ok-bg); }}
   .menu-item .menu-ico {{ font-size:14px; }}
   .menu-item.menu-danger {{ color:var(--down-text); }}
-  .hamburger {{ display:none; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:16px; cursor:pointer; }}
+  .hamburger {{ display:none; padding:8px 12px; margin-top:0; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:16px; cursor:pointer; }}
   .sidebar-overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }}
   /* 移动端: 汉堡收起侧栏 */
   @media (max-width: 768px) {{
