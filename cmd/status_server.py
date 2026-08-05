@@ -317,25 +317,26 @@ PAGE = """<!DOCTYPE html>
 <style>
   /* 日夜主题 CSS 变量 */
   :root, [data-theme="light"] {{
-    --bg: #f5f6fa; --card: #ffffff; --text: #222222; --muted: #666666;
-    --border: #e0e0e0; --input-bg: #ffffff; --accent: #2f6fed;
-    --ok-bg: #e6f7ec; --ok-text: #0e9f4e; --down-bg: #fdecec; --down-text: #d93026;
-    --tab-bg: #ececec; --tab-active: #ffffff; --shadow: rgba(0,0,0,.08);
+    --bg: #f0f2f5; --card: #ffffff; --text: #222222; --muted: #6b7280;
+    --border: #e5e7eb; --input-bg: #ffffff; --accent: #1677ff;
+    --ok-bg: #e6f4ff; --ok-text: #0e9f4e; --down-bg: #fff1f0; --down-text: #d93026;
+    --tab-bg: #f0f2f5; --tab-active: #ffffff; --shadow: rgba(0,0,0,.08);
   }}
   [data-theme="dark"] {{
-    --bg: #1a1a1f; --card: #26262e; --text: #e8e8ea; --muted: #9a9aa0;
-    --border: #3a3a44; --input-bg: #1e1e24; --accent: #4d8dff;
-    --ok-bg: #123524; --ok-text: #34c673; --down-bg: #3a1d1d; --down-text: #ff7a70;
-    --tab-bg: #2e2e36; --tab-active: #26262e; --shadow: rgba(0,0,0,.3);
+    --bg: #141414; --card: #1f1f1f; --text: #e8e8ea; --muted: #9a9aa0;
+    --border: #3a3a44; --input-bg: #26262e; --accent: #4d8dff;
+    --ok-bg: #16324f; --ok-text: #34c673; --down-bg: #3a1d1d; --down-text: #ff7a70;
+    --tab-bg: #2e2e36; --tab-active: #1f1f1f; --shadow: rgba(0,0,0,.3);
   }}
   * {{ box-sizing: border-box; }}
   body {{ font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--text); margin:0; -webkit-text-size-adjust:100%; }}
   /* 侧边栏布局 (参考 9Router) */
   .layout {{ display:flex; min-height:100vh; }}
   .sidebar {{ width:200px; background:var(--card); border-right:1px solid var(--border); padding:16px 10px; flex-shrink:0; }}
-  .nav-item {{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--muted); margin-bottom:2px; }}
-  .nav-item:hover {{ background:var(--tab-bg); }}
-  .nav-item.active {{ background:var(--ok-bg); color:var(--ok-text); font-weight:600; }}
+  .nav-item {{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--muted); margin-bottom:2px; position:relative; }}
+  .nav-item:hover {{ background:var(--card); }}
+  .nav-item.active {{ background:var(--ok-bg); color:var(--accent); font-weight:600; }}
+  .nav-item.active::before {{ content:""; position:absolute; left:-10px; top:8px; bottom:8px; width:3px; border-radius:2px; background:var(--accent); }}
   .nav-item .ico {{ font-size:15px; }}
   .nav-section {{ font-size:11px; color:var(--muted); padding:12px 12px 4px; text-transform:uppercase; letter-spacing:.5px; }}
   .main {{ flex:1; padding:16px; min-width:0; }}
