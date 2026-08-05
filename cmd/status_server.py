@@ -350,7 +350,7 @@ PAGE = """<!DOCTYPE html>
   .icon-btn:hover {{ opacity:.85; }}
   .topbar-menu {{ position:relative; }}
   .menu-dropdown {{ position:absolute; right:0; top:calc(100% + 6px); background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 4px 16px var(--shadow); min-width:140px; z-index:100; padding:4px; }}
-  .menu-item {{ display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:6px; cursor:pointer; font-size:13px; color:var(--text); }}
+  .menu-item {{ display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:6px; cursor:pointer; font-size:13px; color:var(--text); white-space:nowrap; }}
   .menu-item:hover {{ background:var(--ok-bg); }}
   .menu-item .menu-ico {{ font-size:14px; }}
   .menu-item.menu-danger {{ color:var(--down-text); }}
@@ -460,7 +460,7 @@ PAGE = """<!DOCTYPE html>
   .row:last-child {{ border-bottom:none; }}
   .label {{ color:var(--muted); flex-shrink:0; }}
   .val {{ color:var(--text); font-family:monospace; word-break:break-all; text-align:right; }}
-  .meta {{ color:var(--muted); font-size:12px; margin-top:16px; text-align:center; }}
+  .meta {{ color:var(--muted); font-size:12px; margin-top:16px; text-align:center; word-break:break-all; line-height:1.6; }}
   label {{ display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }}
   input {{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:16px; box-sizing:border-box; background:var(--input-bg); color:var(--text); }}
   input:focus {{ outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(47,111,237,.15); }}
@@ -650,7 +650,7 @@ const I18N = {{
     'core-status':'内核状态','state':'状态','platform':'平台',
     'version':'版本','core-port':'内核端口','api-addr':'API 地址','gateway':'消息网关','fallback-llm':'默认 LLM',
     'dashboard':'Dashboard','user':'用户','port':'端口','basic-config':'基础配置','config-hint':'修改后点击保存，再点"重启内核"生效。敏感项已脱敏显示。',
-    'save-config':'💾 保存配置','restart':'🔄 重启内核','restart-hint':'ℹ️ 重启内核会同时重启 消息网关 与 cron 调度',
+    'save-config':'💾 保存配置','restart':'重启内核','restart-hint':'ℹ️ 重启内核会同时重启 消息网关 与 cron 调度',
     'saved':'✅ 配置已保存，请点"重启内核"生效','save-fail':'❌ 保存失败: ','restarting':'🔄 内核正在重启，几秒后刷新页面查看状态','restart-fail':'❌ 重启失败: ',
     'running':'● 运行中','stopped':'● 已停止','healthy':'healthy','unconfigured':'○ 未配置'
   }},
@@ -668,7 +668,7 @@ const I18N = {{
     'core-status':'Core Status','state':'State','platform':'Platform',
     'version':'Version','core-port':'Core Port','api-addr':'API Address','gateway':'Message Gateway','fallback-llm':'Default LLM',
     'dashboard':'Dashboard','user':'User','port':'Port','basic-config':'Basic Config','config-hint':'Edit then click Save, then Restart Core to apply. Sensitive fields are masked.',
-    'save-config':'💾 Save Config','restart':'🔄 Restart Core','restart-hint':'ℹ️ Restarting the core also restarts the message gateway and cron scheduler',
+    'save-config':'💾 Save Config','restart':'Restart Core','restart-hint':'ℹ️ Restarting the core also restarts the message gateway and cron scheduler',
     'saved':'✅ Config saved, click "Restart Core" to apply','save-fail':'❌ Save failed: ','restarting':'🔄 Core restarting, refresh in a few seconds','restart-fail':'❌ Restart failed: ',
     'running':'● Running','stopped':'● Stopped','healthy':'healthy','unconfigured':'○ Not configured'
   }}
@@ -1045,6 +1045,8 @@ document.addEventListener('keydown', (e) => {{
 document.body.dataset.theme = currentTheme;
 document.getElementById('btn-theme').textContent = currentTheme === 'light' ? '🌙' : '☀️';
 applyI18n();
+// 移动端默认收起侧栏, 避免挤压主内容
+if (window.innerWidth <= 768) toggleSidebar(false);
 </script>
 </body>
 </html>
