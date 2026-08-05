@@ -58,6 +58,32 @@ find_hermes_bin() {
     fi
 }
 
+setup_plugins() {
+    # 确保消息平台插件就位:
+    #   - 飞书: hermes-lark-streaming 插件 (提供 feishu_platform 适配器). 配置了飞书凭据才装.
+    #   - 微信: 内置适配器, 无需插件 (仅需 WEIXIN_TOKEN/ACCOUNT_ID env, 已 export).
+    if [ -z "${FEISHU_APP_ID:-}" ] && [ -z "${FEISHU_APP_SECRET:-}" ]; then
+        return 0  # 未配置飞书, 跳过
+    fi
+    local HERMES_BIN="${HERMES_BIN:-$(find_hermes_bin)}"
+    [ -x "${HERMES_BIN}" ] || { log "setup_plugins: hermes not found"; return 0; }
+    local PLUGIN_DIR="${HERMES_HOME}/plugins/hermes-lark-streaming"
+    if [ -d "${PLUGIN_DIR}" ]; then
+        log "setup_plugins: hermes-lark-streaming already installed"
+        return 0
+    fi
+    log "setup_plugins: installing hermes-lark-streaming (Feishu plugin)..."
+    "${HERMES_BIN}" plugins install Aowen-Nowor/hermes-lark-streaming >> "${LOG}" 2>&1 \
+        || "${HERMES_BIN}" plugins install https://gitee.com/Aowen-Nowor/hermes-lark-streaming >> "${LOG}" 2>&1
+    if [ -d "${PLUGIN_DIR}" ]; then
+        log "setup_plugins: hermes-lark-streaming installed"
+        # 启用插件 (写入 config.yaml plugins.enabled)
+        "${HERMES_BIN}" plugins enable hermes-lark-streaming >> "${LOG}" 2>&1 || true
+    else
+        log "setup_plugins: hermes-lark-streaming install FAILED (check network)"
+    fi
+}
+
 start() {
     HERMES_BIN="$(find_hermes_bin)"
     if [ -z "${HERMES_BIN}" ]; then
@@ -103,6 +129,9 @@ start() {
     # 微信渠道: weixin.py 读 WEIXIN_ACCOUNT_ID/TOKEN
     export WEIXIN_ACCOUNT_ID="${WEIXIN_ACCOUNT_ID:-}"
     export WEIXIN_TOKEN="${WEIXIN_TOKEN:-}"
+
+    # 确保飞书/微信消息平台插件就位 (配置了才安装)
+    setup_plugins
 
     cd "${DATA_DIR}"
     nohup "${HERMES_BIN}" gateway run >> "${LOG}" 2>&1 &

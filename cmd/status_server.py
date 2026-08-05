@@ -484,6 +484,9 @@ PAGE = """<!DOCTYPE html>
     <div class="nav-item" data-nav="config" onclick="switchNav('config')">
       <span class="ico">⚙️</span> <span data-i18n="nav-config">配置</span>
     </div>
+    <div class="nav-item" data-nav="messaging" onclick="switchNav('messaging')">
+      <span class="ico">📡</span> <span data-i18n="nav-messaging">消息平台</span>
+    </div>
     <div class="nav-section" data-i18n="nav-providers">模型供应商</div>
     <div class="nav-item" data-nav="providers" onclick="switchNav('providers')">
       <span class="ico">🍟</span> <span data-i18n="nav-providers-title">供应商</span>
@@ -568,6 +571,25 @@ PAGE = """<!DOCTYPE html>
   </div>
   </div>
 
+  <!-- 消息平台面板 -->
+  <div class="nav-panel" id="panel-messaging" style="display:none">
+  <div class="card">
+    <h2>📡 <span data-i18n="nav-messaging">消息平台</span></h2>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.6;" data-i18n="messaging-hint">配置飞书/微信消息渠道，让 Hermes 能从聊天平台收发消息。保存后点「重启内核」生效。飞书需先在开放平台创建应用；微信 Token 为渠道下发的验证凭据。</p>
+    <div id="msg-messaging" class="msg"></div>
+    <form id="cfgform-msg">
+      {MSG_FIELDS}
+    </form>
+    <div class="btn-row">
+      <button class="primary" onclick="saveConfig('cfgform-msg','msg-messaging')" data-i18n="save-config">💾 保存配置</button>
+      <button class="warn" onclick="restartCore()" data-i18n="restart">🔄 重启内核</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.6;" data-i18n="messaging-status">
+      {MSG_STATUS}
+    </p>
+  </div>
+  </div>
+
   <!-- 模型供应商面板 -->
   <div class="nav-panel" id="panel-providers" style="display:none">
   <div class="card">
@@ -587,9 +609,11 @@ const HERMES_AUTH = {AUTH_TOKEN};
 const LLM_MODEL_NAME = {LLM_MODEL_JSON};
 const I18N = {{
   zh: {{
-    'nav-chat':'聊天','nav-status':'状态','nav-config':'配置','nav-providers':'供应商','nav-providers-title':'供应商','local-kernel':'本地内核',
+    'nav-chat':'聊天','nav-status':'状态','nav-config':'配置','nav-messaging':'消息平台','nav-providers':'供应商','nav-providers-title':'供应商','local-kernel':'本地内核',
     'chat-placeholder':'输入消息，Enter 发送...','chat-hint':'通过本机 api_server (8642) 对话。发送即触发一次对话。',
     'providers-hint':'点击供应商卡片配置 API Key。默认模型由安装向导设置，9Router 为本地代理（非强制默认）。',
+    'messaging-hint':'配置飞书/微信消息渠道，让 Hermes 能从聊天平台收发消息。保存后点「重启内核」生效。飞书需先在开放平台创建应用；微信 Token 为渠道下发的验证凭据。',
+    'messaging-status':'📡 状态提示：配置飞书/微信后重启内核，Hermes 消息网关即连接对应平台。当前渠道连接状态见「状态」页的消息网关卡片。',
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
     'wechat-hint':'配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。',
     'core-status':'内核状态','state':'状态','platform':'平台',
@@ -600,9 +624,11 @@ const I18N = {{
     'running':'● 运行中','stopped':'● 已停止','healthy':'healthy','unconfigured':'○ 未配置'
   }},
   en: {{
-    'nav-chat':'Chat','nav-status':'Status','nav-config':'Config','nav-providers':'Providers','nav-providers-title':'Providers','local-kernel':'Local Kernel',
+    'nav-chat':'Chat','nav-status':'Status','nav-config':'Config','nav-messaging':'Messaging','nav-providers':'Providers','nav-providers-title':'Providers','local-kernel':'Local Kernel',
     'chat-placeholder':'Type a message, Enter to send...','chat-hint':'Chat via local api_server (8642). Sending triggers one conversation.',
     'providers-hint':'Click a provider card to configure its API Key. Default model is set in install wizard; 9Router is a local proxy (not forced default).',
+    'messaging-hint':'Configure Feishu/WeChat messaging channels so Hermes can send/receive messages from chat platforms. Save then Restart Core to apply. Feishu needs an app created on its Open Platform; WeChat Token comes from the channel.',
+    'messaging-status':'📡 Tip: after configuring Feishu/WeChat and restarting the core, the Hermes message gateway connects to those platforms. See the Message Gateway card on the Status page for current connection state.',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
     'wechat-hint':'Configure WeChat channel. Save and restart to apply. Token comes from WeChat channel.',
     'core-status':'Core Status','state':'State','platform':'Platform',
@@ -727,12 +753,12 @@ async function api(path, method, body) {{
   const data = await res.json().catch(() => ({{}}));
   return {{ ok: res.ok, ...data }};
 }}
-function showMsg(text, isErr) {{
-  const el = document.getElementById('msg');
+function showMsg(text, isErr, elId) {{
+  const el = document.getElementById(elId || 'msg');
   el.textContent = text;
   el.className = 'msg ' + (isErr ? 'err' : 'ok');
 }}
-async function saveConfig(formId) {{
+async function saveConfig(formId, msgId) {{
   const form = document.getElementById(formId || 'cfgform');
   const fd = new FormData(form);
   // 敏感字段留空 = 不修改 (保留原值)
@@ -742,8 +768,8 @@ async function saveConfig(formId) {{
     [...fd.entries()].filter(([k, v]) => !(sensitive.includes(k) && !v.trim()))
   );
   const r = await api('/api/config', 'POST', data);
-  if (r.ok) showMsg(I18N[currentLang]['saved']);
-  else showMsg(I18N[currentLang]['save-fail'] + (r.error || ''), true);
+  if (r.ok) showMsg(I18N[currentLang]['saved'], false, msgId);
+  else showMsg(I18N[currentLang]['save-fail'] + (r.error || ''), true, msgId);
 }}
 async function restartCore() {{
   const r = await api('/api/restart', 'POST', {{}});
@@ -975,6 +1001,27 @@ def _form_fields_feishu(cfg):
 def _form_fields_wechat(cfg):
     """微信面板字段."""
     return _render_group_fields(cfg, "wechat")
+
+
+def _msg_fields(cfg):
+    """消息平台面板字段: 飞书 + 微信 两组."""
+    parts = []
+    for grp_key in ("feishu", "wechat"):
+        body = _render_group_fields(cfg, grp_key)
+        if body:
+            parts.append(body)
+    return "\n".join(parts)
+
+
+def _msg_status(cfg):
+    """消息平台连接状态摘要 (配置了哪些字段)."""
+    feishu = bool(cfg.get("FEISHU_APP_ID", "") and cfg.get("FEISHU_APP_SECRET", ""))
+    wechat = bool(cfg.get("WEIXIN_ACCOUNT_ID", "") and cfg.get("WEIXIN_TOKEN", ""))
+    feishu_txt = "🟢 已配置" if feishu else "⚪ 未配置"
+    wechat_txt = "🟢 已配置" if wechat else "⚪ 未配置"
+    return (f'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;">'
+            f'<span>💬 飞书: <b>{feishu_txt}</b></span>'
+            f'<span>💬 微信: <b>{wechat_txt}</b></span></div>')
 
 
 def _render_default_model(cfg):
@@ -1237,6 +1284,8 @@ class Handler(BaseHTTPRequestHandler):
             DASH_USER=dash_user,
             DASH_PORT=dash_port,
             FORM_FIELDS=_form_fields(cfg),
+            MSG_FIELDS=_msg_fields(cfg),
+            MSG_STATUS=_msg_status(cfg),
             PROVIDERS_GRID=_render_providers_grid(cfg),
             DEFAULT_MODEL_HTML=_render_default_model(cfg),
             AUTH_TOKEN=json.dumps(API_KEY),   # 注入鉴权 token 到前端 JS
