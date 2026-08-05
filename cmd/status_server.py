@@ -584,6 +584,16 @@ PAGE = """<!DOCTYPE html>
       <button class="primary" onclick="saveConfig('cfgform-msg','msg-messaging')" data-i18n="save-config">💾 保存配置</button>
       <button class="warn" onclick="restartCore()" data-i18n="restart">🔄 重启内核</button>
     </div>
+    <div class="wxqr-section">
+      <div class="cfg-section-title">📱 微信扫码登录</div>
+      <p style="font-size:12px;color:var(--muted);margin:0 0 8px;" data-i18n="wxqr-hint">用微信扫二维码即可自动绑定账号并写入 Token，无需手动填账号 ID/Token。扫码需联网访问微信 iLink。</p>
+      <button class="wxqr-btn" onclick="wxQrStart()" data-i18n="wxqr-start">📱 开始扫码登录</button>
+      <div id="wxqr-area" style="display:none;margin-top:10px;text-align:center;">
+        <img id="wxqr-img" style="width:200px;height:200px;border:1px solid var(--border);border-radius:8px;background:#fff;" alt="微信二维码"/>
+        <div id="wxqr-msg" style="font-size:12px;color:var(--muted);margin-top:6px;" data-i18n="wxqr-wait">用微信扫一扫上面的二维码...</div>
+        <div><a id="wxqr-link" href="#" target="_blank" style="font-size:11px;color:var(--accent);" data-i18n="wxqr-open">打不开？点这里打开二维码链接</a></div>
+      </div>
+    </div>
     <p style="font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.6;" data-i18n="messaging-status">
       {MSG_STATUS}
     </p>
@@ -614,6 +624,8 @@ const I18N = {{
     'providers-hint':'点击供应商卡片配置 API Key。默认模型由安装向导设置，9Router 为本地代理（非强制默认）。',
     'messaging-hint':'配置飞书/微信消息渠道，让 Hermes 能从聊天平台收发消息。保存后点「重启内核」生效。飞书需先在开放平台创建应用；微信 Token 为渠道下发的验证凭据。',
     'messaging-status':'📡 状态提示：配置飞书/微信后重启内核，Hermes 消息网关即连接对应平台。当前渠道连接状态见「状态」页的消息网关卡片。',
+    'wxqr-hint':'用微信扫二维码即可自动绑定账号并写入 Token，无需手动填账号 ID/Token。扫码需联网访问微信 iLink。',
+    'wxqr-start':'📱 开始扫码登录','wxqr-wait':'用微信扫一扫上面的二维码...','wxqr-open':'打不开？点这里打开二维码链接',
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
     'wechat-hint':'配置微信消息渠道，保存后重启内核生效。Token 为微信渠道下发的验证凭据。',
     'core-status':'内核状态','state':'状态','platform':'平台',
@@ -629,6 +641,8 @@ const I18N = {{
     'providers-hint':'Click a provider card to configure its API Key. Default model is set in install wizard; 9Router is a local proxy (not forced default).',
     'messaging-hint':'Configure Feishu/WeChat messaging channels so Hermes can send/receive messages from chat platforms. Save then Restart Core to apply. Feishu needs an app created on its Open Platform; WeChat Token comes from the channel.',
     'messaging-status':'📡 Tip: after configuring Feishu/WeChat and restarting the core, the Hermes message gateway connects to those platforms. See the Message Gateway card on the Status page for current connection state.',
+    'wxqr-hint':'Scan the QR with WeChat to auto-bind your account and write the token — no need to fill Account ID/Token manually. Requires internet access to WeChat iLink.',
+    'wxqr-start':'📱 Start QR Login','wxqr-wait':'Scan the QR code above with WeChat...','wxqr-open':'Can\'t open? Click here for the QR link',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
     'wechat-hint':'Configure WeChat channel. Save and restart to apply. Token comes from WeChat channel.',
     'core-status':'Core Status','state':'State','platform':'Platform',
@@ -775,6 +789,39 @@ async function restartCore() {{
   const r = await api('/api/restart', 'POST', {{}});
   if (r.ok) showMsg(I18N[currentLang]['restarting']);
   else showMsg(I18N[currentLang]['restart-fail'] + (r.error || ''), true);
+}}
+// 微信扫码登录: 获取二维码 → 显示 → 轮询状态 → confirmed 自动写 gateway.env
+let wxQrTimer = null;
+async function wxQrStart() {{
+  const area = document.getElementById('wxqr-area');
+  const msgEl = document.getElementById('wxqr-msg');
+  if (wxQrTimer) {{ clearInterval(wxQrTimer); wxQrTimer = null; }}
+  const r = await api('/api/weixin/qr/start', 'POST', {{}});
+  if (!r.ok) {{
+    showMsg('❌ ' + (r.error || '二维码获取失败'), true, 'msg-messaging');
+    return;
+  }}
+  area.style.display = 'block';
+  const qrUrl = encodeURIComponent(r.qrcode_url || r.qrcode_value);
+  // 用在线 QR 渲染服务生成二维码图 (二维码内容是 liteapp URL, 需微信扫)
+  document.getElementById('wxqr-img').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + qrUrl;
+  document.getElementById('wxqr-link').href = r.qrcode_url || r.qrcode_value;
+  msgEl.textContent = '用微信扫一扫上面的二维码...';
+  // 每 2 秒轮询状态
+  wxQrTimer = setInterval(async () => {{
+    const s = await api('/api/weixin/qr/status?qrcode=' + encodeURIComponent(r.qrcode_value), 'GET');
+    if (s.status === 'confirmed') {{
+      clearInterval(wxQrTimer); wxQrTimer = null;
+      msgEl.textContent = '✅ 微信已连接！account_id=' + (s.account_id || '');
+      showMsg('✅ 微信扫码成功，账号已写入 gateway.env。点「重启内核」生效。', false, 'msg-messaging');
+    }} else if (s.status === 'scaned') {{
+      msgEl.textContent = '已扫码，请在微信里确认...';
+    }} else if (s.status === 'expired') {{
+      msgEl.textContent = '二维码已过期，请点「开始扫码登录」刷新';
+    }} else if (!s.ok) {{
+      msgEl.textContent = '⚠ ' + (s.error || '轮询失败');
+    }}
+  }}, 2000);
 }}
 let chatHistory = [];
 function addChatMsg(role, text) {{
@@ -1087,6 +1134,106 @@ def _render_providers_grid(cfg):
     return '<div class="providers-grid">' + "".join(cards) + "</div>"
 
 
+# ── 微信 QR 扫码登录 (集成 Hermes gateway.platforms.weixin 原生 iLink 机制) ──
+# 依赖: 应用 venv 里的 hermes-agent (gateway.platforms.weixin). 不可用则优雅降级.
+def _weixin_module():
+    """返回 weixin adapter 模块, 不可导入时返回 None."""
+    try:
+        import sys
+        from gateway.platforms import weixin
+        return weixin
+    except Exception:
+        pass
+    # 兜底: 尝试把应用 venv 的 site-packages 加入 sys.path 再 import
+    try:
+        import glob
+        for sp in glob.glob("/vol4/@appdata/HermesCore/venv/lib/python*/site-packages"):
+            if sp not in sys.path:
+                sys.path.insert(0, sp)
+        from gateway.platforms import weixin
+        return weixin
+    except Exception:
+        return None
+
+
+def _weixin_qr_available():
+    """是否可用 (依赖 weixin adapter + aiohttp/cryptography)."""
+    m = _weixin_module()
+    if m is None:
+        return False
+    try:
+        return bool(m.check_weixin_requirements())
+    except Exception:
+        return False
+
+
+def _weixin_qr_start(bot_type="3"):
+    """获取微信登录二维码. 返回 dict {qrcode_url, qrcode_value} 或错误."""
+    m = _weixin_module()
+    if m is None:
+        return {"error": "微信适配器不可用 (未安装 hermes-agent 或无法导入)"}
+    try:
+        import asyncio
+        async def _fetch():
+            import aiohttp
+            async with aiohttp.ClientSession(trust_env=True) as session:
+                resp = await m._api_get(
+                    session,
+                    base_url=m.ILINK_BASE_URL,
+                    endpoint=f"{m.EP_GET_BOT_QR}?bot_type={bot_type}",
+                    timeout_ms=m.QR_TIMEOUT_MS,
+                )
+                return resp
+        resp = asyncio.run(_fetch())
+        value = str(resp.get("qrcode") or "")
+        url = str(resp.get("qrcode_img_content") or "")
+        if not value:
+            return {"error": "二维码响应缺少 qrcode"}
+        return {"qrcode_url": url or value, "qrcode_value": value}
+    except Exception as e:
+        return {"error": f"获取二维码失败: {e}"}
+
+
+def _weixin_qr_poll(qrcode_value):
+    """轮询扫码状态. confirmed 时自动写 gateway.env. 返回 dict."""
+    m = _weixin_module()
+    if m is None:
+        return {"error": "微信适配器不可用"}
+    try:
+        import asyncio
+        async def _poll():
+            import aiohttp
+            async with aiohttp.ClientSession(trust_env=True) as session:
+                resp = await m._api_get(
+                    session,
+                    base_url=m.ILINK_BASE_URL,
+                    endpoint=f"{m.EP_GET_QR_STATUS}?qrcode={qrcode_value}",
+                    timeout_ms=m.QR_TIMEOUT_MS,
+                )
+                return resp
+        resp = asyncio.run(_poll())
+        status = str(resp.get("status") or "wait")
+        if status == "confirmed":
+            account_id = str(resp.get("ilink_bot_id") or "")
+            token = str(resp.get("bot_token") or "")
+            base_url = str(resp.get("baseurl") or m.ILINK_BASE_URL)
+            user_id = str(resp.get("ilink_user_id") or "")
+            if not account_id or not token:
+                return {"status": status, "error": "扫码确认但凭据不完整"}
+            # 写 gateway.env (WEIXIN_ACCOUNT_ID/TOKEN/BASE_URL/CDN_BASE_URL)
+            data = {
+                "WEIXIN_ACCOUNT_ID": account_id,
+                "WEIXIN_TOKEN": token,
+                "WEIXIN_BASE_URL": base_url,
+                "WEIXIN_CDN_BASE_URL": "https://novac2c.cdn.weixin.qq.com/c2c",
+            }
+            _save_config(data)
+            return {"status": status, "account_id": account_id}
+        return {"status": status}
+    except Exception as e:
+        return {"error": f"轮询扫码状态失败: {e}"}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _check_auth(self):
         """Bearer API key 鉴权."""
@@ -1144,6 +1291,16 @@ class Handler(BaseHTTPRequestHandler):
             if not self._check_auth():
                 return
             self._json({"ok": True, "config": _load_config()})
+        elif self.path.startswith("/api/weixin/qr/status"):
+            if not self._check_auth():
+                return
+            from urllib.parse import urlparse, parse_qs
+            q = parse_qs(urlparse(self.path).query).get("qrcode", [""])[0]
+            if not q:
+                self._json({"ok": False, "error": "缺少 qrcode 参数"})
+                return
+            result = _weixin_qr_poll(q)
+            self._json({"ok": "error" not in result, **result})
         else:
             self._json({"ok": False, "error": "not found"}, 404)
 
@@ -1161,6 +1318,17 @@ class Handler(BaseHTTPRequestHandler):
             clean = {k: (v or "").strip() for k, v in data.items() if k in allowed}
             ok, err = _save_config(clean)
             self._json({"ok": ok, "error": err} if not ok else {"ok": True})
+        elif self.path == "/api/weixin/qr/start":
+            if not self._check_auth():
+                return
+            if not _weixin_qr_available():
+                self._json({"ok": False, "error": "微信 QR 登录不可用 (需 hermes-agent 的 weixin 适配器)"})
+                return
+            result = _weixin_qr_start()
+            if "error" in result:
+                self._json({"ok": False, "error": result["error"]})
+            else:
+                self._json({"ok": True, **result})
         elif self.path == "/api/restart":
             if not self._check_auth():
                 return

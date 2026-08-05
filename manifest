@@ -1,8 +1,8 @@
 appname               = HermesCore
-version               = 0.4.7
+version               = 0.4.7.1
 display_name          = Hermes Core
 desc                  = Hermes Agent 本地内核 — 独立 Gateway API 服务，供 Hermes WebUI 等前端连接
-changelog             = 新增消息平台设置面板（飞书/微信消息渠道配置，保存重启生效）；完整UI迭代（微信风格消息会话气泡、默认模型配置调教卡片、移动端适配）；修复更新后运行旧代码；供应商卡片不再撑大网格；状态页版本号动态读取 manifest
+changelog             = 测试包：新增微信扫码登录（消息平台面板点「开始扫码登录」→微信扫二维码→自动写入账号ID/Token）；飞书仍为手动配置
 arch                  = x86_64
 source                = thirdparty
 maintainer            = techysy
