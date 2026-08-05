@@ -51,7 +51,7 @@ def _app_version():
 STATUS_VER = _app_version()
 
 # 可配置字段: (gateway.env key, 表单 label, 是否敏感, 分组)
-# 分组: core=内核 / llm=LLM连接 / dash=Dashboard / feishu=飞书 / wechat=微信
+# 分组: core=内核 / llm=LLM连接 / dash=Dashboard / feishu=飞书 / wechat=微信 / qq=QQ / dingtalk=钉钉
 CONFIG_FIELDS = [
     ("API_SERVER_HOST", "监听地址", False, "core"),
     ("API_SERVER_PORT", "API 端口", False, "core"),
@@ -71,6 +71,10 @@ CONFIG_FIELDS = [
     ("FEISHU_ENCRYPT_KEY", "飞书加密 Key", True, "feishu"),
     ("WEIXIN_ACCOUNT_ID", "微信账号 ID", False, "wechat"),
     ("WEIXIN_TOKEN", "微信 Token(验证码)", True, "wechat"),
+    ("QQ_APP_ID", "QQ 机器人 App ID", False, "qq"),
+    ("QQ_APP_SECRET", "QQ 机器人 Secret", True, "qq"),
+    ("DINGTALK_CLIENT_ID", "钉钉 Client ID", False, "dingtalk"),
+    ("DINGTALK_CLIENT_SECRET", "钉钉 Client Secret", True, "dingtalk"),
 ]
 
 # 配置分组标签
@@ -80,6 +84,8 @@ CONFIG_GROUPS = {
     "dash": ("📊 Dashboard", "dash"),
     "feishu": ("💬 飞书", "feishu"),
     "wechat": ("💬 微信", "wechat"),
+    "qq": ("🐧 QQ", "qq"),
+    "dingtalk": ("📌 钉钉", "dingtalk"),
 }
 
 # 模型供应商 (参考 9Router providers 页)
@@ -342,7 +348,12 @@ PAGE = """<!DOCTYPE html>
   .topbar-actions {{ display:flex; gap:8px; }}
   .icon-btn {{ padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:13px; cursor:pointer; }}
   .icon-btn:hover {{ opacity:.85; }}
-  .icon-btn.warn-icon {{ color:var(--accent); border-color:var(--accent); }}
+  .topbar-menu {{ position:relative; }}
+  .menu-dropdown {{ position:absolute; right:0; top:calc(100% + 6px); background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 4px 16px var(--shadow); min-width:140px; z-index:100; padding:4px; }}
+  .menu-item {{ display:flex; align-items:center; gap:8px; padding:9px 12px; border-radius:6px; cursor:pointer; font-size:13px; color:var(--text); }}
+  .menu-item:hover {{ background:var(--ok-bg); }}
+  .menu-item .menu-ico {{ font-size:14px; }}
+  .menu-item.menu-danger {{ color:var(--down-text); }}
   .hamburger {{ display:none; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:16px; cursor:pointer; }}
   .sidebar-overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }}
   /* 移动端: 汉堡收起侧栏 */
@@ -404,6 +415,16 @@ PAGE = """<!DOCTYPE html>
   .provider-card .p-status.pending {{ background:var(--down-bg); color:var(--down-text); }}
   .provider-card .p-badge {{ position:absolute; top:10px; right:10px; font-size:11px; padding:2px 8px; border-radius:10px; background:var(--accent); color:#fff; }}
   .provider-card .p-desc {{ font-size:11px; color:var(--muted); margin-top:6px; }}
+  /* 消息平台卡片网格 (参考供应商页) */
+  .msg-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }}
+  .msg-card {{ background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; cursor:pointer; transition:border-color .15s; }}
+  .msg-card:hover {{ border-color:var(--accent); }}
+  .msg-card .msg-card-ico {{ width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; margin-bottom:10px; }}
+  .msg-card .msg-card-name {{ font-size:14px; font-weight:600; margin-bottom:4px; }}
+  .msg-card .msg-card-status {{ font-size:12px; display:inline-flex; padding:3px 10px; border-radius:20px; margin-top:6px; background:var(--down-bg); color:var(--down-text); }}
+  .msg-card .msg-card-desc {{ font-size:11px; color:var(--muted); margin-top:6px; }}
+  .msg-card-body input {{ margin-bottom:2px; }}
+  @media (max-width: 600px) {{ .msg-grid {{ grid-template-columns:1fr 1fr; }} }}
   /* 卡片内联配置区 (响应式) */
   /* 卡片内联配置区 — 绝对定位覆盖在原卡片容器上, 不改卡片高度 (网格不被撑大) */
   .p-edit {{ position:absolute; top:0; left:0; right:0; bottom:0; z-index:5; background:var(--card); border-radius:12px; padding:12px; display:flex; flex-direction:column; justify-content:center; box-shadow:0 2px 12px var(--shadow); }}
@@ -502,9 +523,14 @@ PAGE = """<!DOCTYPE html>
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
     </div>
     <div class="topbar-actions">
-      <button class="icon-btn warn-icon" onclick="restartCore()" title="重启内核" data-i18n="restart">🔄</button>
-      <button class="icon-btn" onclick="toggleLang()" id="btn-lang">🌐 EN</button>
-      <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙</button>
+      <div class="topbar-menu" id="topbar-menu">
+        <button class="icon-btn" onclick="toggleTopMenu()" aria-label="菜单">⋮</button>
+        <div class="menu-dropdown" id="menu-dropdown" style="display:none;">
+          <div class="menu-item" onclick="toggleLang()"><span class="menu-ico">🌐</span><span data-i18n="menu-lang">语言切换</span></div>
+          <div class="menu-item" onclick="toggleTheme()"><span class="menu-ico">🌙</span><span data-i18n="menu-theme">主题</span></div>
+          <div class="menu-item menu-danger" onclick="restartCore()"><span class="menu-ico">🔄</span><span data-i18n="restart">重启内核</span></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -576,7 +602,7 @@ PAGE = """<!DOCTYPE html>
   <div class="nav-panel" id="panel-messaging" style="display:none">
   <div class="card">
     <h2>📡 <span data-i18n="nav-messaging">消息平台</span></h2>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.6;" data-i18n="messaging-hint">配置飞书/微信消息渠道，让 Hermes 能从聊天平台收发消息。保存后点「重启内核」生效。飞书需先在开放平台创建应用；微信 Token 为渠道下发的验证凭据。</p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.6;" data-i18n="messaging-hint">配置飞书/微信/QQ/钉钉消息渠道，让 Hermes 能从聊天平台收发消息。点击平台卡片展开配置，保存后点右上角 🔄 重启生效。</p>
     <div id="msg-messaging" class="msg"></div>
     <form id="cfgform-msg">
       {MSG_FIELDS}
@@ -622,8 +648,9 @@ const I18N = {{
     'nav-chat':'聊天','nav-status':'状态','nav-config':'配置','nav-messaging':'消息平台','nav-providers':'供应商','nav-providers-title':'供应商','local-kernel':'本地内核',
     'chat-placeholder':'输入消息，Enter 发送...','chat-hint':'通过本机 api_server (8642) 对话。发送即触发一次对话。',
     'providers-hint':'点击供应商卡片配置 API Key。默认模型由安装向导设置，9Router 为本地代理（非强制默认）。',
-    'messaging-hint':'配置飞书/微信消息渠道，让 Hermes 能从聊天平台收发消息。保存后点「重启内核」生效。飞书需先在开放平台创建应用；微信 Token 为渠道下发的验证凭据。',
+    'messaging-hint':'配置飞书/微信/QQ/钉钉消息渠道，让 Hermes 能从聊天平台收发消息。点击平台卡片展开配置，保存后点右上角 🔄 重启生效。',
     'messaging-status':'📡 状态提示：配置飞书/微信后重启内核，Hermes 消息网关即连接对应平台。当前渠道连接状态见「状态」页的消息网关卡片。',
+    'menu-lang':'语言切换','menu-theme':'主题',
     'wxqr-hint':'用微信扫二维码即可自动绑定账号并写入 Token，无需手动填账号 ID/Token。扫码需联网访问微信 iLink。',
     'wxqr-start':'📱 开始扫码登录','wxqr-wait':'用微信扫一扫上面的二维码...','wxqr-open':'打不开？点这里打开二维码链接',
     'feishu-hint':'配置飞书消息渠道，保存后重启内核生效。验证 Token 为飞书开放平台下发的验证凭据。',
@@ -639,8 +666,9 @@ const I18N = {{
     'nav-chat':'Chat','nav-status':'Status','nav-config':'Config','nav-messaging':'Messaging','nav-providers':'Providers','nav-providers-title':'Providers','local-kernel':'Local Kernel',
     'chat-placeholder':'Type a message, Enter to send...','chat-hint':'Chat via local api_server (8642). Sending triggers one conversation.',
     'providers-hint':'Click a provider card to configure its API Key. Default model is set in install wizard; 9Router is a local proxy (not forced default).',
-    'messaging-hint':'Configure Feishu/WeChat messaging channels so Hermes can send/receive messages from chat platforms. Save then Restart Core to apply. Feishu needs an app created on its Open Platform; WeChat Token comes from the channel.',
+    'messaging-hint':'Configure Feishu/WeChat/QQ/DingTalk messaging channels so Hermes can send/receive messages from chat platforms. Click a platform card to expand config, save then restart with the top-right 🔄.',
     'messaging-status':'📡 Tip: after configuring Feishu/WeChat and restarting the core, the Hermes message gateway connects to those platforms. See the Message Gateway card on the Status page for current connection state.',
+    'menu-lang':'Language','menu-theme':'Theme',
     'wxqr-hint':'Scan the QR with WeChat to auto-bind your account and write the token — no need to fill Account ID/Token manually. Requires internet access to WeChat iLink.',
     'wxqr-start':'📱 Start QR Login','wxqr-wait':'Scan the QR code above with WeChat...','wxqr-open':'Cannot open? Click here for the QR link',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
@@ -682,14 +710,34 @@ function toggleTheme() {{
   currentTheme = currentTheme === 'light' ? 'dark' : 'light';
   lsSet('hermes_theme', currentTheme);
   document.body.dataset.theme = currentTheme;
-  document.getElementById('btn-theme').textContent = currentTheme === 'light' ? '🌙' : '☀️';
+  // 主题切换后关闭下拉菜单
+  const dd = document.getElementById('menu-dropdown');
+  if (dd) dd.style.display = 'none';
 }}
+function toggleTopMenu() {{
+  const dd = document.getElementById('menu-dropdown');
+  if (!dd) return;
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}}
+// 点击空白处关闭下拉菜单
+document.addEventListener('click', (e) => {{
+  const tm = document.getElementById('topbar-menu');
+  if (tm && !tm.contains(e.target)) {{
+    const dd = document.getElementById('menu-dropdown');
+    if (dd) dd.style.display = 'none';
+  }}
+}});
 function switchNav(nav) {{
   // 切换侧边栏菜单
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.nav === nav));
   document.querySelectorAll('.nav-panel').forEach(p => p.style.display = (p.id === 'panel-' + nav) ? 'block' : 'none');
   // 移动端: 切换后收起侧栏
   if (window.innerWidth <= 768) toggleSidebar(false);
+}}
+// 消息平台卡片: 点击展开/收起该平台的配置字段
+function toggleMsgCard(grp) {{
+  const body = document.getElementById('msg-card-' + grp);
+  if (body) body.style.display = body.style.display === 'none' ? 'block' : 'none';
 }}
 function toggleSidebar(open) {{
   const sidebar = document.getElementById('sidebar');
@@ -1056,24 +1104,48 @@ def _form_fields_wechat(cfg):
 
 
 def _msg_fields(cfg):
-    """消息平台面板字段: 飞书 + 微信 两组."""
-    parts = []
-    for grp_key in ("feishu", "wechat"):
-        body = _render_group_fields(cfg, grp_key)
-        if body:
-            parts.append(body)
-    return "\n".join(parts)
+    """消息平台面板: 渲染为平台卡片网格 (参考供应商页). 点击卡片展开配置字段."""
+    platforms = [
+        {"grp": "feishu", "name": "飞书", "ico": "💬", "bg": "#3370ff", "desc": "企业自建应用 App ID/Secret"},
+        {"grp": "wechat", "name": "微信", "ico": "💚", "bg": "#07c160", "desc": "im.bot 通道, 支持扫码登录"},
+        {"grp": "qq", "name": "QQ", "ico": "🐧", "bg": "#12b7f5", "desc": "QQ 机器人 App ID/Secret"},
+        {"grp": "dingtalk", "name": "钉钉", "ico": "📌", "bg": "#0089ff", "desc": "钉钉机器人 Client ID/Secret"},
+    ]
+    cards = []
+    for p in platforms:
+        grp = p["grp"]
+        fields = _render_group_fields(cfg, grp)
+        # 判断已配置: 取该组第一个非空字段
+        keys = [k for k, _l, _s, g in CONFIG_FIELDS if g == grp]
+        configured = any(cfg.get(k, "") for k in keys)
+        status_txt = "🟢 已配置" if configured else "⚪ 未配置"
+        body = ""
+        if fields:
+            body = (f'<div class="msg-card-body" id="msg-card-{grp}" style="display:none;'
+                    f'margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">'
+                    f'{fields}</div>')
+        cards.append(
+            f'<div class="msg-card" data-msg="{grp}" onclick="toggleMsgCard(\'{grp}\')">'
+            f'<div class="msg-card-ico" style="background:{p["bg"]};">{p["ico"]}</div>'
+            f'<div class="msg-card-name">{p["name"]}</div>'
+            f'<span class="msg-card-status">{status_txt}</span>'
+            f'<div class="msg-card-desc">{p["desc"]}</div>'
+            f'{body}'
+            f'</div>'
+        )
+    return '<div class="msg-grid">' + "".join(cards) + "</div>"
 
 
 def _msg_status(cfg):
-    """消息平台连接状态摘要 (配置了哪些字段)."""
-    feishu = bool(cfg.get("FEISHU_APP_ID", "") and cfg.get("FEISHU_APP_SECRET", ""))
-    wechat = bool(cfg.get("WEIXIN_ACCOUNT_ID", "") and cfg.get("WEIXIN_TOKEN", ""))
-    feishu_txt = "🟢 已配置" if feishu else "⚪ 未配置"
-    wechat_txt = "🟢 已配置" if wechat else "⚪ 未配置"
-    return (f'<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;">'
-            f'<span>💬 飞书: <b>{feishu_txt}</b></span>'
-            f'<span>💬 微信: <b>{wechat_txt}</b></span></div>')
+    """消息平台连接状态摘要 (四个平台)."""
+    names = {"feishu": "飞书", "wechat": "微信", "qq": "QQ", "dingtalk": "钉钉"}
+    parts = []
+    for grp, nm in names.items():
+        keys = [k for k, _l, _s, g in CONFIG_FIELDS if g == grp]
+        configured = any(cfg.get(k, "") for k in keys)
+        txt = "🟢 已配置" if configured else "⚪ 未配置"
+        parts.append(f'<span>{names[grp]}: <b>{txt}</b></span>')
+    return f'<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;">' + "".join(parts) + "</div>"
 
 
 def _render_default_model(cfg):

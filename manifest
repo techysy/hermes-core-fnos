@@ -1,8 +1,8 @@
 appname               = HermesCore
-version               = 0.4.7.4
+version               = 0.4.7.5
 display_name          = Hermes Core
 desc                  = Hermes Agent 本地内核 — 独立 Gateway API 服务，供 Hermes WebUI 等前端连接
-changelog             = 测试包：重启内核统一到右上角单一按钮，移除面板内重复入口，重启后自动刷新页面；新增微信扫码登录；修复前端按钮失效；修复网关残留进程
+changelog             = 测试包：顶栏改为统一菜单（语言/主题/重启内核）；消息平台改为平台卡片网格并内置QQ/钉钉；重启后自动刷新页面
 arch                  = x86_64
 source                = thirdparty
 maintainer            = techysy
