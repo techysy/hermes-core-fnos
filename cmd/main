@@ -333,6 +333,8 @@ stop() {
     # 3) 兜底: 匹配本内核的实际进程 cmdline (防止孤儿进程占端口)
     pkill -f "${VENV}/bin/hermes gateway run" 2>/dev/null || true
     pkill -f "hermes gateway run" 2>/dev/null || true
+    # 兼容旧版/不同启动方式: python -m hermes_cli.main gateway run (cmdline 不含 "hermes gateway run" 连写, 会漏掉)
+    pkill -f "hermes_cli.main gateway run" 2>/dev/null || true
     log "stop complete"
 }
 
