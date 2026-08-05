@@ -1,8 +1,8 @@
 appname               = HermesCore
-version               = 0.4.7.10
+version               = 0.4.7.11
 display_name          = Hermes Core
 desc                  = Hermes Agent 本地内核 — 独立 Gateway API 服务，供 Hermes WebUI 等前端连接
-changelog             = 测试包：移除左上角品牌区(🔧Hermes Core/本地内核, fnOS标题栏已显示应用名)；修复移动端布局
+changelog             = 测试包：顶栏语言/主题按钮上移对齐侧边栏聊天项（去掉全局button margin-top的16px影响）
 arch                  = x86_64
 source                = thirdparty
 maintainer            = techysy

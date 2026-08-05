@@ -342,7 +342,7 @@ PAGE = """<!DOCTYPE html>
   .topbar {{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:8px; }}
   .topbar h1 {{ font-size:20px; margin:0; }}
   .topbar-actions {{ display:flex; gap:8px; }}
-  .icon-btn {{ padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:13px; cursor:pointer; }}
+  .icon-btn {{ padding:8px 12px; margin-top:0; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:13px; cursor:pointer; }}
   .icon-btn:hover {{ opacity:.85; }}
   .topbar-menu {{ position:relative; }}
   .menu-dropdown {{ position:absolute; right:0; top:calc(100% + 6px); background:var(--card); border:1px solid var(--border); border-radius:10px; box-shadow:0 4px 16px var(--shadow); min-width:140px; z-index:100; padding:4px; }}
