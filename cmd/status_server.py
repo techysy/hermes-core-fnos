@@ -62,7 +62,7 @@ CONFIG_FIELDS = [
     ("LLM_BASE_URL", "默认 LLM Base URL", False, "llm"),
     ("LLM_API_KEY", "默认 LLM Token", True, "llm"),
     ("LLM_MODEL", "默认模型名", False, "llm"),
-    ("DASHBOARD_ENABLED", "Dashboard 开关(true/false)", False, "dash"),
+    ("DASHBOARD_ENABLED", "Dashboard 开关", False, "dash"),
     ("DASHBOARD_USER", "Dashboard 用户名", False, "dash"),
     ("DASHBOARD_PASSWORD", "Dashboard 密码", True, "dash"),
     ("FEISHU_APP_ID", "飞书应用 App ID", False, "feishu"),

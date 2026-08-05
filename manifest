@@ -1,8 +1,8 @@
 appname               = HermesCore
-version               = 0.4.7.12
+version               = 0.4.7.13
 display_name          = Hermes Core
 desc                  = Hermes Agent 本地内核 — 独立 Gateway API 服务，供 Hermes WebUI 等前端连接
-changelog             = 测试包：移动端汉堡菜单上移对齐语言/主题按钮（去掉hamburger的margin-top）
+changelog             = 测试包：移除 Dashboard 开关 label 的(true/false)文案（已用switch开关组件）
 arch                  = x86_64
 source                = thirdparty
 maintainer            = techysy
