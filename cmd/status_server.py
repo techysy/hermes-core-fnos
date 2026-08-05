@@ -342,6 +342,7 @@ PAGE = """<!DOCTYPE html>
   .topbar-actions {{ display:flex; gap:8px; }}
   .icon-btn {{ padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:13px; cursor:pointer; }}
   .icon-btn:hover {{ opacity:.85; }}
+  .icon-btn.warn-icon {{ color:var(--accent); border-color:var(--accent); }}
   .hamburger {{ display:none; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--card); color:var(--text); font-size:16px; cursor:pointer; }}
   .sidebar-overlay {{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }}
   /* 移动端: 汉堡收起侧栏 */
@@ -501,6 +502,7 @@ PAGE = """<!DOCTYPE html>
       <button class="hamburger" onclick="toggleSidebar()">☰</button>
     </div>
     <div class="topbar-actions">
+      <button class="icon-btn warn-icon" onclick="restartCore()" title="重启内核" data-i18n="restart">🔄</button>
       <button class="icon-btn" onclick="toggleLang()" id="btn-lang">🌐 EN</button>
       <button class="icon-btn" onclick="toggleTheme()" id="btn-theme">🌙</button>
     </div>
@@ -563,10 +565,9 @@ PAGE = """<!DOCTYPE html>
     </form>
     <div class="btn-row">
       <button class="primary" onclick="saveConfig('cfgform')" data-i18n="save-config">💾 保存配置</button>
-      <button class="warn" onclick="restartCore()" data-i18n="restart">🔄 重启内核</button>
     </div>
     <p style="font-size:12px;color:var(--muted);margin:12px 0 0;line-height:1.5;" data-i18n="restart-hint">
-      ℹ️ 重启内核会同时重启 <b>消息网关</b>（Feishu/Telegram/微信等平台连接）与 cron 调度，消息平台短暂断开后自动恢复。
+      ℹ️ 重启内核会同时重启 <b>消息网关</b>（Feishu/Telegram/微信等平台连接）与 cron 调度，消息平台短暂断开后自动恢复。重启请用右上角 🔄 按钮。
     </p>
   </div>
   </div>
@@ -582,7 +583,6 @@ PAGE = """<!DOCTYPE html>
     </form>
     <div class="btn-row">
       <button class="primary" onclick="saveConfig('cfgform-msg','msg-messaging')" data-i18n="save-config">💾 保存配置</button>
-      <button class="warn" onclick="restartCore()" data-i18n="restart">🔄 重启内核</button>
     </div>
     <div class="wxqr-section">
       <div class="cfg-section-title">📱 微信扫码登录</div>
@@ -787,8 +787,13 @@ async function saveConfig(formId, msgId) {{
 }}
 async function restartCore() {{
   const r = await api('/api/restart', 'POST', {{}});
-  if (r.ok) showMsg(I18N[currentLang]['restarting']);
-  else showMsg(I18N[currentLang]['restart-fail'] + (r.error || ''), true);
+  if (r.ok) {{
+    // 状态服务会被重启过程杀掉, 立即显示"重启中"并自动刷新, 避免按钮看起来"无效"
+    showMsg(I18N[currentLang]['restarting']);
+    setTimeout(() => location.reload(), 5000);
+  }} else {{
+    showMsg(I18N[currentLang]['restart-fail'] + (r.error || ''), true);
+  }}
 }}
 // 微信扫码登录: 获取二维码 → 显示 → 轮询状态 → confirmed 自动写 gateway.env
 let wxQrTimer = null;
