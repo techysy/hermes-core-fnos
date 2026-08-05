@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.4.7.13-test (2026-08-05)
+
+> 测试包 — Dashboard 开关文案清理。基于 v0.4.7.12。
+
+### 修复 / Fixed
+- **Dashboard 开关 label 残留 (true/false)** — Dashboard 已改用 switch 开关组件（开启/关闭），但 label 仍是 `Dashboard 开关(true/false)`。去掉 `(true/false)`，label 改为 `Dashboard 开关`
+
 ## 0.4.7.12-test (2026-08-05)
 
 > 测试包 — 移动端汉堡菜单对齐。基于 v0.4.7.11。
