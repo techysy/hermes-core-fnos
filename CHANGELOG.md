@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.4.7.1-test (2026-08-05)
+
+> 测试包 — 新增微信扫码登录（集成 Hermes gateway.platforms.weixin 原生 iLink QR 机制）。基于 v0.4.7。
+
+### 新增 / Added
+- **📱 微信扫码登录** — 消息平台面板新增「开始扫码登录」按钮：点击获取微信登录二维码 → 用微信扫一扫 → 自动绑定账号并写入 WEIXIN_ACCOUNT_ID/TOKEN/BASE_URL 到 gateway.env → 点重启生效
+  - 后端 `/api/weixin/qr/start`（获取二维码）+ `/api/weixin/qr/status`（轮询扫码状态，confirmed 自动写 gateway.env）
+  - 前端轮询每 2 秒更新状态，扫码确认后提示重启内核
+  - 依赖应用 venv 的 hermes-agent weixin 适配器；不可用时优雅降级提示
+- **飞书说明** — 飞书保持 App ID/Secret 手动配置（飞书平台无扫码机制，机器人只能通过自建应用 App ID/Secret 连接）
+
 ## 0.4.7 (2026-08-05)
 
 > 正式版 — 新增「消息平台」设置面板（飞书/微信消息渠道配置）。基于 v0.4.6 完整 UI 迭代（微信风格会话、默认模型调教、安装向导）与全部修复，叠加新功能。
