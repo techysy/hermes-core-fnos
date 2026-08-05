@@ -333,10 +333,6 @@ PAGE = """<!DOCTYPE html>
   /* 侧边栏布局 (参考 9Router) */
   .layout {{ display:flex; min-height:100vh; }}
   .sidebar {{ width:200px; background:var(--card); border-right:1px solid var(--border); padding:16px 10px; flex-shrink:0; }}
-  .sidebar-brand {{ display:flex; align-items:center; gap:8px; padding:0 8px 16px; border-bottom:1px solid var(--border); margin-bottom:12px; }}
-  .sidebar-brand .logo {{ width:28px; height:28px; border-radius:8px; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:16px; }}
-  .sidebar-brand .name {{ font-size:14px; font-weight:700; }}
-  .sidebar-brand .ver {{ font-size:11px; color:var(--muted); }}
   .nav-item {{ display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:8px; cursor:pointer; font-size:13px; color:var(--muted); margin-bottom:2px; }}
   .nav-item:hover {{ background:var(--tab-bg); }}
   .nav-item.active {{ background:var(--ok-bg); color:var(--ok-text); font-weight:600; }}
@@ -496,13 +492,6 @@ PAGE = """<!DOCTYPE html>
   <div class="layout">
   <!-- 侧边栏导航 (参考 9Router) -->
   <div class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-      <div class="logo">🔧</div>
-      <div>
-        <div class="name">Hermes Core</div>
-        <div class="ver" data-i18n="local-kernel">本地内核</div>
-      </div>
-    </div>
     <div class="nav-item active" data-nav="chat" onclick="switchNav('chat')">
       <span class="ico">💬</span> <span data-i18n="nav-chat">聊天</span>
     </div>
