@@ -642,7 +642,7 @@ const I18N = {{
     'messaging-hint':'Configure Feishu/WeChat messaging channels so Hermes can send/receive messages from chat platforms. Save then Restart Core to apply. Feishu needs an app created on its Open Platform; WeChat Token comes from the channel.',
     'messaging-status':'📡 Tip: after configuring Feishu/WeChat and restarting the core, the Hermes message gateway connects to those platforms. See the Message Gateway card on the Status page for current connection state.',
     'wxqr-hint':'Scan the QR with WeChat to auto-bind your account and write the token — no need to fill Account ID/Token manually. Requires internet access to WeChat iLink.',
-    'wxqr-start':'📱 Start QR Login','wxqr-wait':'Scan the QR code above with WeChat...','wxqr-open':'Can\'t open? Click here for the QR link',
+    'wxqr-start':'📱 Start QR Login','wxqr-wait':'Scan the QR code above with WeChat...','wxqr-open':'Cannot open? Click here for the QR link',
     'feishu-hint':'Configure Feishu channel. Save and restart to apply. Verification Token comes from Feishu Open Platform.',
     'wechat-hint':'Configure WeChat channel. Save and restart to apply. Token comes from WeChat channel.',
     'core-status':'Core Status','state':'State','platform':'Platform',
